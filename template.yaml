@@ -57,6 +57,7 @@ Resources:
             - dynamodb:GetItem
             - dynamodb:Query
             - dynamodb:UpdateItem
+            - dynamodb:Scan
             Resource: '*'
     
   ListsCreateFunction:
@@ -84,6 +85,7 @@ Resources:
             - dynamodb:GetItem
             - dynamodb:Query
             - dynamodb:UpdateItem
+            - dynamodb:Scan
             Resource: '*'
 
   ListsReadFunction:
@@ -131,6 +133,7 @@ Resources:
             - dynamodb:GetItem
             - dynamodb:Query
             - dynamodb:UpdateItem
+            - dynamodb:Scan
             Resource: '*'
 
   ListsUpdateFunction:
@@ -158,6 +161,7 @@ Resources:
             - dynamodb:GetItem
             - dynamodb:Query
             - dynamodb:UpdateItem
+            - dynamodb:Scan
             Resource: '*'
 
   ListsDeleteFunction:
@@ -185,8 +189,9 @@ Resources:
             - dynamodb:GetItem
             - dynamodb:Query
             - dynamodb:UpdateItem
+            - dynamodb:Scan
             Resource: '*'
-            
+
 Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
