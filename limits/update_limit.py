@@ -2,7 +2,7 @@ import json
 from decimal import Decimal
 from utils import response_lambda, get_dynamodb_table
 
-def create_limit(event, limit_type):
+def update_limit(event, limit_type):
     table = get_dynamodb_table()
     params = event['queryStringParameters'] or {}
     body = json.loads(event['body'])
