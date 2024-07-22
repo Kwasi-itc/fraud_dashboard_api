@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FraudPy Dashboard API
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.8
+    Environment:
+      Variables:
+        FRAUD_LISTS_TABLE: FraudPyV1ListsTable
+        FRAUD_LIMITS_TABLE: FraudPyV1LimitsTable
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+
+Resources:
+  LimitsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./limits
+      Handler: lambda_handler.lambda_handler
+      Events:
+        LimitsAccount:
+          Type: Api
+          Properties:
+            Path: /limits/account
+            Method: ANY
+        LimitsAccountApplication:
+          Type: Api
+          Properties:
+            Path: /limits/account-application
+            Method: ANY
+        LimitsAccountApplicationMerchant:
+          Type: Api
+          Properties:
+            Path: /limits/account-application-merchant
+            Method: ANY
+        LimitsAccountApplicationMerchantProduct:
+          Type: Api
+          Properties:
+            Path: /limits/account-application-merchant-product
+            Method: ANY
+
+  ListsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: create.lambda_handler
+      Events:
+        CreateList:
+          Type: Api
+          Properties:
+            Path: /lists
+            Method: POST
+
+  ListsReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: read.lambda_handler
+      Events:
+        ReadList:
+          Type: Api
+          Properties:
+            Path: /lists
+            Method: GET
+        ReadListByListType:
+          Type: Api
+          Properties:
+            Path: /lists/by-list-type
+            Method: GET
+        ReadListByChannel:
+          Type: Api
+          Properties:
+            Path: /lists/by-channel
+            Method: GET
+        ReadListByEntityType:
+          Type: Api
+          Properties:
+            Path: /lists/by-entity-type
+            Method: GET
+        ReadListByDateRange:
+          Type: Api
+          Properties:
+            Path: /lists/by-date-range
+            Method: GET
+
+  ListsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: update.lambda_handler
+      Events:
+        UpdateList:
+          Type: Api
+          Properties:
+            Path: /lists
+            Method: PUT
+
+  ListsDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: delete.lambda_handler
+      Events:
+        DeleteList:
+          Type: Api
+          Properties:
+            Path: /lists
+            Method: DELETE
+
+Outputs:
+  ApiURL:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
