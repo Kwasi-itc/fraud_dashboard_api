@@ -18,30 +18,18 @@ def create_limit(event, limit_type):
             'HOURLY_COUNT', 'DAILY_COUNT', 'WEEKLY_COUNT', 'MONTHLY_COUNT'
         ]
 
-        print("I am here 1")
     
         if not all(attr in body for attr in required_attributes):
             return response_lambda(400, {"message" : f"Missing required attributes. Required: {', '.join(required_attributes)}"})
         
-        print("I am here 2")
         item = {
             'PARTITION_KEY': partition_key,
             'SORT_KEY': sort_key,
             **{attr: Decimal(str(body[attr])) for attr in required_attributes}
         }
-        print("I am here 3")
     
         table.put_item(Item=item)
-        print("I am here 4")
         return response_lambda(200, {"message": "Limit created successfully"})
-        #return {
-        #'statusCode': 200,
-        #'body': {"message": "Limit created successfully"},
-        #'headers': {
-        #    'Access-Control-Allow-Origin': '*',
-        #    'Access-Control-Allow-Credentials': True,
-        #}
-        #}
     except Exception as e:
         print("An error occured ", e)
         return response_lambda(500, {"message": "An error occured " + e})
