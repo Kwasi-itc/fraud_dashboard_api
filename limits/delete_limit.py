@@ -1,16 +1,20 @@
 from utils import response_lambda, get_dynamodb_table
 
 def delete_limit(event, limit_type):
-    table = get_dynamodb_table()
-    params = event['queryStringParameters'] or {}
+    try:
+        table = get_dynamodb_table()
+        params = event['queryStringParameters'] or {}
     
-    partition_key, sort_key = construct_keys(params, limit_type)
+        partition_key, sort_key = construct_keys(params, limit_type)
     
-    if not partition_key or not sort_key:
-        return response_lambda(400, {"message": "Missing required parameters"})
+        if not partition_key or not sort_key:
+            return response_lambda(400, {"message": "Missing required parameters"})
     
-    table.delete_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
-    return response_lambda(200, {"message": "Limit deleted successfully"})
+        table.delete_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
+        return response_lambda(200, {"message": "Limit deleted successfully"})
+    except Exception as e:
+        print("An error occured ", e)
+        return response_lambda(500, {"message": "An error occured " + e})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')

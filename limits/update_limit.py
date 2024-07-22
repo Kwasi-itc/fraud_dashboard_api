@@ -3,31 +3,35 @@ from decimal import Decimal
 from utils import response_lambda, get_dynamodb_table
 
 def update_limit(event, limit_type):
-    table = get_dynamodb_table()
-    params = event['queryStringParameters'] or {}
-    body = json.loads(event['body'])
+    try:
+        table = get_dynamodb_table()
+        params = event['queryStringParameters'] or {}
+        body = json.loads(event['body'])
     
-    partition_key, sort_key = construct_keys(params, limit_type)
+        partition_key, sort_key = construct_keys(params, limit_type)
     
-    if not partition_key:
-        return response_lambda(400, {"message": "Missing required parameters"})
+        if not partition_key:
+            return response_lambda(400, {"message": "Missing required parameters"})
     
-    required_attributes = [
-        'AMOUNT', 'HOURLY_SUM', 'DAILY_SUM', 'WEEKLY_SUM', 'MONTHLY_SUM',
-        'HOURLY_COUNT', 'DAILY_COUNT', 'WEEKLY_COUNT', 'MONTHLY_COUNT'
-    ]
+        required_attributes = [
+            'AMOUNT', 'HOURLY_SUM', 'DAILY_SUM', 'WEEKLY_SUM', 'MONTHLY_SUM',
+            'HOURLY_COUNT', 'DAILY_COUNT', 'WEEKLY_COUNT', 'MONTHLY_COUNT'
+        ]
     
-    if not all(attr in body for attr in required_attributes):
-        return response_lambda(400, {"message": f"Missing required attributes. Required: {', '.join(required_attributes)}"})
+        if not all(attr in body for attr in required_attributes):
+            return response_lambda(400, {"message": f"Missing required attributes. Required: {', '.join(required_attributes)}"})
     
-    item = {
-        'PARTITION_KEY': partition_key,
-        'SORT_KEY': sort_key,
-        **{attr: Decimal(str(body[attr])) for attr in required_attributes}
-    }
+        item = {
+            'PARTITION_KEY': partition_key,
+            'SORT_KEY': sort_key,
+            **{attr: Decimal(str(body[attr])) for attr in required_attributes}
+        }
     
-    table.put_item(Item=item)
-    return response_lambda(200, {"message": "Limit updated successfully"})
+        table.put_item(Item=item)
+        return response_lambda(200, {"message": "Limit updated successfully"})
+    except Exception as e:
+        print("An error occured ", e)
+        return response_lambda(500, {"message": "An error occured " + e})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')

@@ -3,22 +3,26 @@ import json
 import boto3
 
 def read_limit(event, limit_type):
-    table = get_dynamodb_table()
-    params = event['queryStringParameters'] or {}
+    try:
+        table = get_dynamodb_table()
+        params = event['queryStringParameters'] or {}
     
-    partition_key, sort_key = construct_keys(params, limit_type)
+        partition_key, sort_key = construct_keys(params, limit_type)
     
-    if not partition_key:
-        return response_lambda(400, {"message": "Missing required parameters"})
+        if not partition_key:
+            return response_lambda(400, {"message": "Missing required parameters"})
     
-    if sort_key:
-        response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
-        item = response.get('Item')
-    else:
-        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
-        item = response.get('Items')
+        if sort_key:
+            response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
+            item = response.get('Item')
+        else:
+            response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
+            item = response.get('Items')
     
-    return response(200, json.dumps(item, default=decimal_default)) if item else response(404, "Limit not found")
+        return response(200, json.dumps(item, default=decimal_default)) if item else response(404, "Limit not found")
+    except Exception as e:
+        print("An error occured ", e)
+        return response_lambda(500, {"message": "An error occured " + e})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
