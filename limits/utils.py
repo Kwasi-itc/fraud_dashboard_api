@@ -8,14 +8,15 @@ def get_dynamodb_table():
     return dynamodb.Table(table_name)
 
 def response_lambda(status_code, body):
-    return {
+    dictionary = {
         'statusCode': status_code,
         'body': body,
         'headers': {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': True,
-        },
+        }
     }
+    return dictionary 
 
 def decimal_default(obj):
     if isinstance(obj, Decimal):

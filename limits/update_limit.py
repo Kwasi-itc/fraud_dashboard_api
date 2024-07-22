@@ -27,7 +27,8 @@ def update_limit(event, limit_type):
             **{attr: Decimal(str(body[attr])) for attr in required_attributes}
         }
     
-        table.put_item(Item=item)
+        response = table.put_item(Item=item)
+        print("The response after putting item in the table is ", response)
         return response_lambda(200, {"message": "Limit updated successfully"})
     except Exception as e:
         print("An error occured ", e)
