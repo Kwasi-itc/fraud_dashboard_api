@@ -1,4 +1,4 @@
-from utils import response_lambda, get_dynamodb_table, decimal_default
+from utils import response_lambda, get_dynamodb_table, decimal_default, alternate_response_lambda
 import json
 import boto3
 
@@ -26,7 +26,7 @@ def read_limit(event, limit_type):
 
         print("The item is ", item)
         print("I am here 3")
-        return response(200, json.dumps(item, default=decimal_default)) if item else response(404, "Limit not found")
+        return alternate_response_lambda(200, json.dumps(item, default=decimal_default)) if item else response_lambda(404, {"message": "Limit not found"})
     except Exception as e:
         print("An error occured ", e)
         return response_lambda(500, {"message": "An error occured " + e})
