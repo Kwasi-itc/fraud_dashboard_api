@@ -10,7 +10,9 @@ table = dynamodb.Table(table_name)
 
 def lambda_handler(event, context):
     try:
+        print("The event is ", event)
         path = event['path']
+        print("The path is ", path)
         method = event['httpMethod']
         
         if method != 'GET':
@@ -30,7 +32,8 @@ def lambda_handler(event, context):
             return response(404, "Not Found")
 
     except Exception as e:
-        return response(500, f"Error: {str(e)}")
+        print("An error occured ", e)
+        return response(500, {"message": f"Error: {str(e)}"})
 
 def handle_specific_query(event):
     params = event['queryStringParameters'] or {}

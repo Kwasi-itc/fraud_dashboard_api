@@ -22,10 +22,11 @@ def lambda_handler(event, context):
         elif path == '/limits/account-application-merchant-product':
             return handle_limit(event, method, 'ACCOUNT_APPLICATION_MERCHANT_PRODUCT')
         else:
-            return response(404, "Not Found")
+            return response(404, {"message": "Not Found"})
 
     except Exception as e:
-        return response(500, f"Error: {str(e)}")
+        print("An error occured ", e)
+        return response(500, {"message": f"Error: {str(e)}"})
 
 def handle_limit(event, method, limit_type):
     if method == 'GET':

@@ -12,7 +12,9 @@ ALLOWED_LIST_TYPES = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
 
 def lambda_handler(event, context):
     try:
+        print("The event is ", event)
         body = json.loads(event['body'])
+        print("The body is ", body)
         list_type = body['list_type']
         channel = body['channel']
         entity_type = body['entity_type']
@@ -54,6 +56,7 @@ def lambda_handler(event, context):
             },
         }
     except ClientError as e:
+        print("An error occured ", e)
         return {
             'statusCode': 500,
             'body': json.dumps({'message': f"Error: {str(e)}"}),
