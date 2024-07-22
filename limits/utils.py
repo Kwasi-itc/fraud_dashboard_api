@@ -4,7 +4,7 @@ import os
 
 def get_dynamodb_table():
     dynamodb = boto3.resource('dynamodb')
-    table_name = os.environ["FRAUD_LISTS_TABLE"]
+    table_name = os.environ["FRAUD_LIMITS_TABLE"]
     return dynamodb.Table(table_name)
 
 def response_lambda(status_code, body):

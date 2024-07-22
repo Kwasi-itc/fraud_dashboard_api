@@ -7,7 +7,9 @@ from update_limit import update_limit
 
 def lambda_handler(event, context):
     try:
+        print("The event is ", event)
         path = event['path']
+        print("The path is ", path)
         method = event['httpMethod']
         
         if method not in ['GET', 'POST', 'PUT', 'DELETE']:

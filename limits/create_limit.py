@@ -6,7 +6,7 @@ def create_limit(event, limit_type):
     table = get_dynamodb_table()
     params = event['queryStringParameters'] or {}
     body = json.loads(event['body'])
-    
+    print("The body is ", body)
     partition_key, sort_key = construct_keys(params, limit_type)
     
     if not partition_key:
