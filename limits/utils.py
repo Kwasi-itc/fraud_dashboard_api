@@ -7,7 +7,7 @@ def get_dynamodb_table():
     table_name = os.environ["FRAUD_LISTS_TABLE"]
     return dynamodb.Table(table_name)
 
-def response(status_code, body):
+def response_lambda(status_code, body):
     return {
         'statusCode': status_code,
         'body': body,

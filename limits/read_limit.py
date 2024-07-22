@@ -1,5 +1,5 @@
 import json
-from utils import response, get_dynamodb_table, decimal_default
+from utils import response_lambda, get_dynamodb_table, decimal_default
 import boto3
 
 def read_limit(event, limit_type):
@@ -9,7 +9,7 @@ def read_limit(event, limit_type):
     partition_key, sort_key = construct_keys(params, limit_type)
     
     if not partition_key:
-        return response(400, "Missing required parameters")
+        return response_lambda(400, {"message": "Missing required parameters"})
     
     if sort_key:
         response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})

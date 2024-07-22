@@ -3,7 +3,7 @@ from create_limit import create_limit
 from read_limit import read_limit
 from update_limit import update_limit
 from delete_limit import delete_limit
-from utils import response
+from utils import response_lambda
 
 def lambda_handler(event, context):
     try:
@@ -11,7 +11,7 @@ def lambda_handler(event, context):
         method = event['httpMethod']
         
         if method not in ['GET', 'POST', 'PUT', 'DELETE']:
-            return response(400, "Unsupported HTTP method")
+            return response_lambda(400, {"message": "Unsupported HTTP method"})
 
         if path == '/limits/account':
             return handle_limit(event, method, 'ACCOUNT')
@@ -22,11 +22,11 @@ def lambda_handler(event, context):
         elif path == '/limits/account-application-merchant-product':
             return handle_limit(event, method, 'ACCOUNT_APPLICATION_MERCHANT_PRODUCT')
         else:
-            return response(404, {"message": "Not Found"})
+            return response_lambda(404, {"message": "Not Found"})
 
     except Exception as e:
         print("An error occured ", e)
-        return response(500, {"message": f"Error: {str(e)}"})
+        return response_lambda(500, {"message": f"Error: {str(e)}"})
 
 def handle_limit(event, method, limit_type):
     if method == 'GET':

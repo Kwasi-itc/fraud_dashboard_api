@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from utils import response, get_dynamodb_table
+from utils import response_lambda, get_dynamodb_table
 
 def create_limit(event, limit_type):
     table = get_dynamodb_table()
@@ -10,7 +10,7 @@ def create_limit(event, limit_type):
     partition_key, sort_key = construct_keys(params, limit_type)
     
     if not partition_key:
-        return response(400, "Missing required parameters")
+        return response_lambda(400, {"message": "Missing required parameters"})
     
     required_attributes = [
         'AMOUNT', 'HOURLY_SUM', 'DAILY_SUM', 'WEEKLY_SUM', 'MONTHLY_SUM',
@@ -18,7 +18,7 @@ def create_limit(event, limit_type):
     ]
     
     if not all(attr in body for attr in required_attributes):
-        return response(400, f"Missing required attributes. Required: {', '.join(required_attributes)}")
+        return response_lambda(400, {"message" : f"Missing required attributes. Required: {', '.join(required_attributes)}"})
     
     item = {
         'PARTITION_KEY': partition_key,
@@ -27,7 +27,7 @@ def create_limit(event, limit_type):
     }
     
     table.put_item(Item=item)
-    return response(200, "Limit created successfully")
+    return response_lambda(200, {"message": "Limit created successfully"})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
