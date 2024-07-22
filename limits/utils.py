@@ -17,7 +17,18 @@ def response_lambda(status_code, body):
             'Access-Control-Allow-Credentials': True,
         }
     }
-    return dictionary 
+    return dictionary
+
+def alternate_response_lambda(status_code, body):
+    dictionary = {
+        'statusCode': status_code,
+        'body': body,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        }
+    }
+    return dictionary
 
 def decimal_default(obj):
     if isinstance(obj, Decimal):
