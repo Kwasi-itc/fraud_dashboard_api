@@ -43,7 +43,22 @@ Resources:
           Properties:
             Path: /limits/account-application-merchant-product
             Method: ANY
-
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            Resource: '*'
+    
   ListsCreateFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -55,6 +70,21 @@ Resources:
           Properties:
             Path: /lists
             Method: POST
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            Resource: '*'
 
   ListsReadFunction:
     Type: AWS::Serverless::Function
@@ -87,6 +117,21 @@ Resources:
           Properties:
             Path: /lists/by-date-range
             Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            Resource: '*'
 
   ListsUpdateFunction:
     Type: AWS::Serverless::Function
@@ -99,6 +144,21 @@ Resources:
           Properties:
             Path: /lists
             Method: PUT
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            Resource: '*'
 
   ListsDeleteFunction:
     Type: AWS::Serverless::Function
@@ -111,7 +171,22 @@ Resources:
           Properties:
             Path: /lists
             Method: DELETE
-
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            Resource: '*'
+            
 Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
