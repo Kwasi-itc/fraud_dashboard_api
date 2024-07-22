@@ -33,8 +33,8 @@ def lambda_handler(event, context):
 
         response = table.put_item(
             Item={
-                'PK': partition_key,
-                'SK': sort_key,
+                'PARTITION_KEY': partition_key,
+                'SORT_KEY': sort_key,
                 'created_at': str(datetime.now())
             }
         )

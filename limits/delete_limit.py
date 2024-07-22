@@ -9,7 +9,7 @@ def delete_limit(event, limit_type):
     if not partition_key or not sort_key:
         return response(400, "Missing required parameters")
     
-    table.delete_item(Key={'PK': partition_key, 'SK': sort_key})
+    table.delete_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
     return response(200, "Limit deleted successfully")
 
 def construct_keys(params, limit_type):

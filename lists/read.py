@@ -89,22 +89,22 @@ def handle_date_range_query(event):
 def query_specific(list_type, channel, entity_type, entity_id):
     partition_key = f"{list_type}-{channel}-{entity_type}"
     if entity_id:
-        response = table.get_item(Key={'PK': partition_key, 'SK': entity_id})
+        response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': entity_id})
         return [response.get('Item')] if 'Item' in response else []
     else:
-        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PK').eq(partition_key))
+        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
         return response.get('Items', [])
 
 def query_by_list_type(list_type):
-    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PK').begins_with(f"{list_type}-"))
+    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').begins_with(f"{list_type}-"))
     return response.get('Items', [])
 
 def query_by_channel(channel):
-    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PK').contains(f"-{channel}-"))
+    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{channel}-"))
     return response.get('Items', [])
 
 def query_by_entity_type(entity_type):
-    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PK').contains(f"-{entity_type}"))
+    response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{entity_type}"))
     return response.get('Items', [])
 
 def query_by_date_range(start_date, end_date):

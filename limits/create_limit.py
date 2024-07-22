@@ -21,8 +21,8 @@ def create_limit(event, limit_type):
         return response(400, f"Missing required attributes. Required: {', '.join(required_attributes)}")
     
     item = {
-        'PK': partition_key,
-        'SK': sort_key,
+        'PARTITION_KEY': partition_key,
+        'SORT_KEY': sort_key,
         **{attr: Decimal(str(body[attr])) for attr in required_attributes}
     }
     

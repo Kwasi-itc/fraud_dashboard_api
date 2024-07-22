@@ -12,10 +12,10 @@ def read_limit(event, limit_type):
         return response(400, "Missing required parameters")
     
     if sort_key:
-        response = table.get_item(Key={'PK': partition_key, 'SK': sort_key})
+        response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
         item = response.get('Item')
     else:
-        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PK').eq(partition_key))
+        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
         item = response.get('Items')
     
     return response(200, json.dumps(item, default=decimal_default)) if item else response(404, "Limit not found")

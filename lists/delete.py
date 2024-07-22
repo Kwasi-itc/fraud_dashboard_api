@@ -32,8 +32,8 @@ def lambda_handler(event, context):
 
         response = table.delete_item(
             Key={
-                'PK': partition_key,
-                'SK': sort_key
+                'PARTITION_KEY': partition_key,
+                'SORT_KEY': sort_key
             }
         )
 
