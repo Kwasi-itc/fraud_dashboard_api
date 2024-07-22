@@ -1,6 +1,7 @@
 import boto3
 from decimal import Decimal
 import os
+import json
 
 def get_dynamodb_table():
     dynamodb = boto3.resource('dynamodb')
@@ -10,7 +11,7 @@ def get_dynamodb_table():
 def response_lambda(status_code, body):
     dictionary = {
         'statusCode': status_code,
-        'body': body,
+        'body': json.dumps(body),
         'headers': {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': True,

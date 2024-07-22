@@ -34,6 +34,14 @@ def create_limit(event, limit_type):
         table.put_item(Item=item)
         print("I am here 4")
         return response_lambda(200, {"message": "Limit created successfully"})
+        #return {
+        #'statusCode': 200,
+        #'body': {"message": "Limit created successfully"},
+        #'headers': {
+        #    'Access-Control-Allow-Origin': '*',
+        #    'Access-Control-Allow-Credentials': True,
+        #}
+        #}
     except Exception as e:
         print("An error occured ", e)
         return response_lambda(500, {"message": "An error occured " + e})
