@@ -72,8 +72,9 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
     # Process items to return only necessary information
     processed_items = []
     for item in filtered_items:
-        original_transaction = item["processed_transaction"]['original_transaction']
-        evaluation = item["processed_transaction"]['evaluation']
+        processed_transaction = json.loads(item["processed_transaction"]) 
+        original_transaction =  processed_transaction["original_transaction"]
+        evaluation = processed_transaction['evaluation']
         
         processed_item = {
             'transaction_id': original_transaction['transaction_id'],
@@ -84,7 +85,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
             'channel': original_transaction['channel'],
             'evaluation_result': evaluation['result'],
             'evaluation_reason': evaluation.get('reason', ''),
-            'relevant_aggregates': get_relevant_aggregates(item['aggregates'], original_transaction, evaluation)
+            'relevant_aggregates': get_relevant_aggregates(processed_transaction['aggregates'], original_transaction, evaluation)
         }
         processed_items.append(processed_item)
     
