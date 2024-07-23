@@ -51,6 +51,8 @@ def construct_partition_key(params):
     else:
         raise ValueError('Invalid query type')
 
+
+
 def query_transactions(partition_key, start_timestamp, end_timestamp):
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
@@ -73,8 +75,8 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
     processed_items = []
     for item in filtered_items:
         processed_transaction = json.loads(item["processed_transaction"]) 
-        original_transaction =  processed_transaction["original_transaction"]
-        evaluation = processed_transaction['evaluation']
+        original_transaction = processed_transaction["original_transaction"]
+        evaluation = processed_transaction.get('evaluation', {})
         
         processed_item = {
             'transaction_id': original_transaction['transaction_id'],
@@ -83,9 +85,8 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
             'currency': original_transaction['currency'],
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
-            'evaluation_result': evaluation['result'],
-            'evaluation_reason': evaluation.get('reason', ''),
-            'relevant_aggregates': get_relevant_aggregates(processed_transaction['aggregates'], original_transaction, evaluation)
+            'evaluation': evaluation,
+            'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
     
@@ -93,8 +94,6 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):
     relevant_aggregates = {}
-    reason = evaluation.get('reason', '')
-    result = evaluation['result']
     
     channel = transaction['channel']
     account_id = transaction['account_id']
@@ -116,27 +115,28 @@ def get_relevant_aggregates(aggregates, transaction, evaluation):
                 'count': aggregates[key]['COUNT']
             }
     
-    # Check reason and add relevant aggregates
-    if 'list' in reason.lower():
-        # For list-related reasons, we don't need to add specific aggregates
-        pass
-    elif 'amount_exceeded' in reason.lower() or 'sum_exceeded' in reason.lower() or 'count_exceeded' in reason.lower():
-        level = None
-        if 'account_application_merchant_product' in reason.lower():
-            level = f"ACCOUNT_APPLICATION_MERCHANT_PRODUCT-{account_id}__{application_id}__{merchant_id}__{product_id}"
-        elif 'account_application_merchant' in reason.lower():
-            level = f"ACCOUNT_APPLICATION_MERCHANT-{account_id}__{application_id}__{merchant_id}"
-        elif 'account_application' in reason.lower():
-            level = f"ACCOUNT_APPLICATION-{account_id}__{application_id}"
-        elif 'account' in reason.lower():
-            level = f"ACCOUNT-{account_id}"
+    for reason in evaluation.keys():
+        if any(list_type in reason for list_type in ['blacklist', 'watchlist', 'stafflist']):
+            # For list-related reasons, we don't need to add specific aggregates
+            continue
         
-        if level:
-            base_key = f"AGGREGATION-{channel}-{level}-"
-            add_aggregate(base_key + month_key, 'MONTHLY')
-            add_aggregate(base_key + week_key, 'WEEKLY')
-            add_aggregate(base_key + day_key, 'DAILY')
-            add_aggregate(base_key + hour_key, 'HOURLY')
+        if 'amount_exceeded' in reason or 'sum_exceeded' in reason or 'count_exceeded' in reason:
+            level = None
+            if 'account_application_merchant_product' in reason:
+                level = f"ACCOUNT_APPLICATION_MERCHANT_PRODUCT-{account_id}__{application_id}__{merchant_id}__{product_id}"
+            elif 'account_application_merchant' in reason:
+                level = f"ACCOUNT_APPLICATION_MERCHANT-{account_id}__{application_id}__{merchant_id}"
+            elif 'account_application' in reason:
+                level = f"ACCOUNT_APPLICATION-{account_id}__{application_id}"
+            elif 'account' in reason:
+                level = f"ACCOUNT-{account_id}"
+            
+            if level:
+                base_key = f"AGGREGATION-{channel}-{level}-"
+                add_aggregate(base_key + month_key, 'MONTHLY')
+                add_aggregate(base_key + week_key, 'WEEKLY')
+                add_aggregate(base_key + day_key, 'DAILY')
+                add_aggregate(base_key + hour_key, 'HOURLY')
     
     return relevant_aggregates
 
