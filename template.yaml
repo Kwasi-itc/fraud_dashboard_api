@@ -210,6 +210,23 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: '*'
 
+  TransactionSummaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./transaction_summary
+      Handler: app.lambda_handler
+      Events:
+        QueryTransactionSummary:
+          Type: Api
+          Properties:
+            Path: /transaction-summary
+            Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
+
 Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
