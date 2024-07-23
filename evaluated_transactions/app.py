@@ -49,15 +49,23 @@ def construct_partition_key(params):
         raise ValueError('Invalid query type')
 
 def query_transactions(partition_key, start_timestamp, end_timestamp):
+    start_sk = f"{start_timestamp}_"
+    end_sk = f"{end_timestamp}_z"
+    
     response = table.query(
-        KeyConditionExpression=Key('PK').eq(partition_key) & Key('SK').between(start_timestamp, end_timestamp)
+        KeyConditionExpression=Key('PK').eq(partition_key) & Key('SK').between(start_sk, end_sk)
     )
     
     items = response['Items']
+
+    filtered_items = [
+        item for item in items
+        if start_timestamp <= int(item['SK'].split('_')[0]) <= end_timestamp
+    ]
     
     # Process items to return only necessary information
     processed_items = []
-    for item in items:
+    for item in filtered_items:
         original_transaction = item['original_transaction']
         evaluation = item['evaluation']
         
