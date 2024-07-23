@@ -43,9 +43,9 @@ def construct_partition_key(params):
     elif query_type == 'application':
         return f"EVALUATED-{channel}-APPLICATION-{params.get('application_id', '')}"
     elif query_type == 'merchant':
-        return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}_{params.get('merchant_id', '')}"
+        return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}__{params.get('merchant_id', '')}"
     elif query_type == 'product':
-        return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}_{params.get('merchant_id', '')}_{params.get('product_id', '')}"
+        return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
     elif query_type in ['blacklist', 'watchlist', 'staff', 'limit']:
         return f"EVALUATED-{query_type.upper()}"
     else:
@@ -60,17 +60,20 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
     )
     
     items = response['Items']
+    print("The items are ", items)
 
     filtered_items = [
         item for item in items
         if start_timestamp <= int(item['SORT_KEY'].split('_')[0]) <= end_timestamp
     ]
+
+    print("The filtered items are ", filtered_items)
     
     # Process items to return only necessary information
     processed_items = []
     for item in filtered_items:
-        original_transaction = item['original_transaction']
-        evaluation = item['evaluation']
+        original_transaction = item["processed_transaction"]['original_transaction']
+        evaluation = item["processed_transaction"]['evaluation']
         
         processed_item = {
             'transaction_id': original_transaction['transaction_id'],
