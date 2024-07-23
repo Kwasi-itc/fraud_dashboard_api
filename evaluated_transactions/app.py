@@ -1,52 +1,137 @@
-import json
 import os
-from langchain import OpenAI, SQLDatabase, SQLDatabaseChain
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts.prompt import PromptTemplate
+import json
+import boto3
+from boto3.dynamodb.conditions import Key, Attr
+from datetime import datetime, timedelta
 
-# Set your OpenAI API key as an environment variable in the Lambda function configuration
-# os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 def lambda_handler(event, context):
-    # Extract parameters from the event
-    db_uri = event['db_uri']
-    question = event['question']
-    dialect = event['dialect']
+    try:
+        query_params = event['queryStringParameters'] or {}
+        
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+        
+        if not start_date or not end_date:
+            return response(400, {'message': 'start_date and end_date are required'})
+        
+        start_timestamp = int(datetime.strptime(start_date, '%Y-%m-%d').timestamp())
+        end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
+        
+        partition_key = construct_partition_key(query_params)
+        
+        items = query_transactions(partition_key, start_timestamp, end_timestamp)
+        
+        return response(200, {'items': items})
+    
+    except Exception as e:
+        return response(500, {'message': str(e)})
 
-    # Connect to the SQL database
-    db = SQLDatabase.from_uri(db_uri)
+def construct_partition_key(params):
+    query_type = params.get('query_type', 'all')
+    channel = params.get('channel', '')
+    
+    if query_type == 'all':
+        return 'EVALUATED'
+    elif query_type == 'account':
+        return f"EVALUATED-{channel}-ACCOUNT-{params.get('account_id', '')}"
+    elif query_type == 'application':
+        return f"EVALUATED-{channel}-APPLICATION-{params.get('application_id', '')}"
+    elif query_type == 'merchant':
+        return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}_{params.get('merchant_id', '')}"
+    elif query_type == 'product':
+        return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}_{params.get('merchant_id', '')}_{params.get('product_id', '')}"
+    elif query_type in ['blacklist', 'watchlist', 'staff', 'limit']:
+        return f"EVALUATED-{query_type.upper()}"
+    else:
+        raise ValueError('Invalid query type')
 
-    # Initialize the language model
-    llm = ChatOpenAI(temperature=0)
-
-    # Define the prompt template
-    _DEFAULT_TEMPLATE = """Given an input question, first create a syntactically correct {dialect} query to run, then look at the results of the query and return the answer.
-    Use the following format:
-    Question: "Question here"
-    SQLQuery: "SQL Query to run"
-    SQLResult: "Result of the SQLQuery"
-    Answer: "Final answer here"
-    Only use the following tables:
-    {table_info}
-    If someone asks for the table foobar, respond that there is no table named foobar.
-    Question: {input}"""
-
-    PROMPT = PromptTemplate(
-        input_variables=["input", "dialect", "table_info"],
-        template=_DEFAULT_TEMPLATE
+def query_transactions(partition_key, start_timestamp, end_timestamp):
+    response = table.query(
+        KeyConditionExpression=Key('PK').eq(partition_key) & Key('SK').between(start_timestamp, end_timestamp)
     )
+    
+    items = response['Items']
+    
+    # Process items to return only necessary information
+    processed_items = []
+    for item in items:
+        original_transaction = item['original_transaction']
+        evaluation = item['evaluation']
+        
+        processed_item = {
+            'transaction_id': original_transaction['transaction_id'],
+            'date': original_transaction['date'],
+            'amount': original_transaction['amount'],
+            'currency': original_transaction['currency'],
+            'country': original_transaction['country'],
+            'channel': original_transaction['channel'],
+            'evaluation_result': evaluation['result'],
+            'evaluation_reason': evaluation.get('reason', ''),
+            'relevant_aggregates': get_relevant_aggregates(item['aggregates'], original_transaction, evaluation)
+        }
+        processed_items.append(processed_item)
+    
+    return processed_items
 
-    # Create the SQL database chain
-    db_chain = SQLDatabaseChain.from_llm(llm, db, prompt=PROMPT, verbose=True)
+def get_relevant_aggregates(aggregates, transaction, evaluation):
+    relevant_aggregates = {}
+    reason = evaluation.get('reason', '')
+    result = evaluation['result']
+    
+    channel = transaction['channel']
+    account_id = transaction['account_id']
+    application_id = transaction['application_id']
+    merchant_id = transaction['merchant_id']
+    product_id = transaction['product_id']
+    
+    date = datetime.strptime(transaction['date'], '%Y-%m-%dT%H:%M:%S')
+    month_key = f"MONTH-{date.strftime('%Y-%m')}"
+    week_key = f"WEEK-{date.strftime('%Y-%W')}"
+    day_key = f"DAY-{date.strftime('%Y-%m-%d')}"
+    hour_key = f"HOUR-{date.strftime('%Y-%m-%d-%H:00:00')}"
+    
+    # Helper function to add relevant aggregate
+    def add_aggregate(key, period):
+        if key in aggregates:
+            relevant_aggregates[f"{period}_aggregate"] = {
+                'sum': aggregates[key]['SUM'],
+                'count': aggregates[key]['COUNT']
+            }
+    
+    # Check reason and add relevant aggregates
+    if 'list' in reason.lower():
+        # For list-related reasons, we don't need to add specific aggregates
+        pass
+    elif 'amount_exceeded' in reason.lower() or 'sum_exceeded' in reason.lower() or 'count_exceeded' in reason.lower():
+        level = None
+        if 'account_application_merchant_product' in reason.lower():
+            level = f"ACCOUNT_APPLICATION_MERCHANT_PRODUCT-{account_id}__{application_id}__{merchant_id}__{product_id}"
+        elif 'account_application_merchant' in reason.lower():
+            level = f"ACCOUNT_APPLICATION_MERCHANT-{account_id}__{application_id}__{merchant_id}"
+        elif 'account_application' in reason.lower():
+            level = f"ACCOUNT_APPLICATION-{account_id}__{application_id}"
+        elif 'account' in reason.lower():
+            level = f"ACCOUNT-{account_id}"
+        
+        if level:
+            base_key = f"AGGREGATION-{channel}-{level}-"
+            add_aggregate(base_key + month_key, 'MONTHLY')
+            add_aggregate(base_key + week_key, 'WEEKLY')
+            add_aggregate(base_key + day_key, 'DAILY')
+            add_aggregate(base_key + hour_key, 'HOURLY')
+    
+    return relevant_aggregates
 
-    # Get table info
-    table_info = db.get_table_info()
-
-    # Run the query
-    result = db_chain.run(input=question, dialect=dialect, table_info=table_info)
-
-    # Return the result
+def response(status_code, body):
     return {
-        'statusCode': 200,
-        'body': json.dumps(result)
+        'statusCode': status_code,
+        'body': json.dumps(body),
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        },
     }

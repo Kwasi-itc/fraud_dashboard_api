@@ -8,11 +8,9 @@ def read_limit(event, limit_type):
         params = event['queryStringParameters'] or {}
         print("The params are ", params)
 
-        print("I am here 1")
         partition_key, sort_key = construct_keys(params, limit_type)
 
         print("The partition key and sort key are ", partition_key, sort_key)
-        print("I am here 2")
 
         if not partition_key:
             return response_lambda(400, {"message": "Missing required parameters"})
@@ -25,7 +23,6 @@ def read_limit(event, limit_type):
             item = response.get('Items')
 
         print("The item is ", item)
-        print("I am here 3")
         return alternate_response_lambda(200, json.dumps(item, default=decimal_default)) if item else response_lambda(404, {"message": "Limit not found"})
     except Exception as e:
         print("An error occured ", e)

@@ -10,6 +10,7 @@ Globals:
       Variables:
         FRAUD_LISTS_TABLE: FraudPyV1ListsTable
         FRAUD_LIMITS_TABLE: FraudPyV1LimitsTable
+        FRAUD_PROCESSED_TRANSACTIONS_TABLE: FraudPyV1ProcessedTransactionsTable
   Api:
     Cors:
       AllowMethods: "'*'"
@@ -191,6 +192,23 @@ Resources:
             - dynamodb:UpdateItem
             - dynamodb:Scan
             Resource: '*'
+  
+  EvaluatedTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./evaluated_transactions
+      Handler: app.lambda_handler
+      Events:
+        QueryEvaluatedTransactions:
+          Type: Api
+          Properties:
+            Path: /evaluated-transactions
+            Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
 
 Outputs:
   ApiURL:
