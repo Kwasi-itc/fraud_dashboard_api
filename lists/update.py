@@ -36,7 +36,6 @@ def lambda_handler(event, context):
         partition_key = f"{list_type}-{channel}-{entity_type}"
         sort_key = ""
 
-        sort_key = ""
         if entity_type == "ACCOUNT":
             sort_key = account_id
         elif entity_type == "APPLICATION":

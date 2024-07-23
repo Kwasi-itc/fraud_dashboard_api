@@ -17,7 +17,10 @@ def lambda_handler(event, context):
         list_type = body['list_type']
         channel = body['channel']
         entity_type = body['entity_type']
-        entity_id = body['entity_id']
+        account_id = body['account_id']
+        application_id = body['application_id']
+        merchant_id = body['merchant_id']
+        product_id = body['product_id']
 
         if list_type not in ALLOWED_LIST_TYPES:
             return {
@@ -30,7 +33,25 @@ def lambda_handler(event, context):
             }
 
         partition_key = f"{list_type}-{channel}-{entity_type}"
-        sort_key = entity_id
+        sort_key = ""
+
+        if entity_type == "ACCOUNT":
+            sort_key = account_id
+        elif entity_type == "APPLICATION":
+            sort_key = application_id
+        elif entity_type == "MERCHANT":
+            sort_key = application_id + "__" + merchant_id
+        elif entity_type == "PRODUCT":
+            sort_key = application_id + "__" + merchant_id + "__" + product_id
+        else:
+            return {
+            'statusCode': 500,
+            'body': json.dumps({'message': "entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': True,
+            },
+        }
 
         response = table.delete_item(
             Key={
