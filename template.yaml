@@ -213,7 +213,7 @@ Resources:
   TransactionSummaryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./transaction_summary
+      CodeUri: ./transactions_summary
       Handler: app.lambda_handler
       Events:
         QueryTransactionSummary:
