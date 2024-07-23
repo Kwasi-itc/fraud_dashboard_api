@@ -9,7 +9,9 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 def lambda_handler(event, context):
     try:
+        print("The event is ", event)
         query_params = event['queryStringParameters'] or {}
+        print("The query params are ", query_params)
         
         start_date = query_params.get('start_date')
         end_date = query_params.get('end_date')
@@ -27,6 +29,7 @@ def lambda_handler(event, context):
         return response(200, {'items': items})
     
     except Exception as e:
+        print("An error occured ", e)
         return response(500, {'message': str(e)})
 
 def construct_partition_key(params):
