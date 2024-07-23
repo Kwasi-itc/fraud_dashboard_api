@@ -90,12 +90,13 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         }
         processed_items.append(processed_item)
     
+    print("The query params when trying to get the items are ", query_params)
     query_type = query_params.get('query_type', 'all')
 
     if query_type == 'normal':
         possible_processed_items = []
         for processed_item in processed_items:
-            if evaluation == {}:
+            if processed_item["evaluation"] == {}:
                 possible_processed_items.append(processed_item)
         processed_items = possible_processed_items
 
