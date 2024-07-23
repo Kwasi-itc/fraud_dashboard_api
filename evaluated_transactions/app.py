@@ -56,14 +56,14 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
     end_sk = f"{end_timestamp}_z"
     
     response = table.query(
-        KeyConditionExpression=Key('PK').eq(partition_key) & Key('SK').between(start_sk, end_sk)
+        KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk)
     )
     
     items = response['Items']
 
     filtered_items = [
         item for item in items
-        if start_timestamp <= int(item['SK'].split('_')[0]) <= end_timestamp
+        if start_timestamp <= int(item['SORT_KEY'].split('_')[0]) <= end_timestamp
     ]
     
     # Process items to return only necessary information
