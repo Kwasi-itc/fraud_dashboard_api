@@ -24,7 +24,7 @@ def lambda_handler(event, context):
         
         partition_key = construct_partition_key(query_params)
         
-        items = query_transactions(partition_key, start_timestamp, end_timestamp)
+        items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params)
         
         return response(200, {'items': items})
     
@@ -36,7 +36,7 @@ def construct_partition_key(params):
     query_type = params.get('query_type', 'all')
     channel = params.get('channel', '')
     
-    if query_type == 'all':
+    if query_type == 'all' or query_type == 'normal':
         return 'EVALUATED'
     elif query_type == 'account':
         return f"EVALUATED-{channel}-ACCOUNT-{params.get('account_id', '')}"
@@ -53,7 +53,7 @@ def construct_partition_key(params):
 
 
 
-def query_transactions(partition_key, start_timestamp, end_timestamp):
+def query_transactions(partition_key, start_timestamp, end_timestamp, query_params):
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
     
@@ -90,6 +90,15 @@ def query_transactions(partition_key, start_timestamp, end_timestamp):
         }
         processed_items.append(processed_item)
     
+    query_type = query_params.get('query_type', 'all')
+
+    if query_type == 'normal':
+        possible_processed_items = []
+        for processed_item in processed_items:
+            if evaluation == {}:
+                possible_processed_items.append(processed_item)
+        processed_items = possible_processed_items
+
     return processed_items
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):

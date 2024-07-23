@@ -40,7 +40,22 @@ def handle_specific_query(event):
     list_type = params.get('list_type')
     channel = params.get('channel')
     entity_type = params.get('entity_type')
-    entity_id = params.get('entity_id')
+    account_id = params.get('account_id')
+    application_id = params.get('application_id')
+    merchant_id = params.get('merchant_id')
+    product_id = params.get('product_id')
+    
+    entity_id = ""
+    if entity_type == "ACCOUNT":
+        entity_id = account_id
+    elif entity_type == "APPLICATION":
+        entity_id = application_id
+    elif entity_type == "MERCHANT":
+        entity_id = application_id + "__" + merchant_id
+    elif entity_type == "PRODUCT":
+        entity_id = application_id + "__" + merchant_id + "__" + product_id
+    else:
+        return response(400, json.dumps({"error": "Entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"}))
 
     if not all([list_type, channel, entity_type]):
         return response(400, "Missing required parameters")
