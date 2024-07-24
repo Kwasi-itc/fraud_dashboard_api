@@ -86,7 +86,8 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
-            'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
+            'relevant_aggregates': processed_transaction.get('aggregates', {})
+            #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
     
