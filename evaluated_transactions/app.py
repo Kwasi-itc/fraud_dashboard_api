@@ -77,30 +77,14 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         processed_transaction = json.loads(item["processed_transaction"]) 
         original_transaction = processed_transaction["original_transaction"]
         evaluation = processed_transaction.get('evaluation', {})
-        channel_id = ""
-        account_id = ""
-        application_id = ""
-        merchant_id = ""
-        product_id = ""
+        account_id = original_transaction['account_id']
+        application_id = original_transaction['application_id']
+        merchant_id = original_transaction['merchant_id']
+        product_id = original_transaction['product_id']
 
-        if "ACCOUNT" in item["PARTITION_KEY"]:
-            channel_id = item["PARTITION_KEY"].split("-")[1]
-            account_id = item["PARTITION_KEY"].split("-")[3]
-        elif "APPLICATION" in item["PARTITION_KEY"]:
-            channel_id = item["PARTITION_KEY"].split("-")[1]
-            application_id = item["PARTITION_KEY"].split("-")[3]
-        elif "MERCHANT" in item["PARTITION_KEY"]:
-            channel_id = item["PARTITION_KEY"].split("-")[1]
-            application_id = item["PARTITION_KEY"].split("-")[3].split("__")[0]
-            merchant_id = item["PARTITION_KEY"].split("-")[3].split("__")[1]
-        elif "PRODUCT" in item["PARTITION_KEY"]:
-            channel_id = item["PARTITION_KEY"].split("-")[1]
-            application_id = item["PARTITION_KEY"].split("-")[3].split("__")[0]
-            merchant_id = item["PARTITION_KEY"].split("-")[3].split("__")[1]
-            product_id = item["PARTITION_KEY"].split("-")[3].split("__")[2]
+        
         
         processed_item = {
-            'channel_id': channel_id,
             'account_id': account_id,
             'application_id': application_id,
             'merchant_id': merchant_id,
