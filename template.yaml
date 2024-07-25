@@ -120,6 +120,11 @@ Resources:
           Properties:
             Path: /lists/by-date-range
             Method: GET
+        ReadListByEntityTypeAndListType:
+          Type: Api
+          Properties:
+            Path: /lists/by-list-type-and-entity-type
+            Method: GET
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
