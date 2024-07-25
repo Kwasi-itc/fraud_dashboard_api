@@ -140,14 +140,13 @@ def query_by_entity_type(entity_type):
     return response.get('Items', [])
 
 def query_by_list_and_entity_type(list_type, entity_type):
-    partition_key_prefix = f"EVALUATED-{list_type.upper()}-"
-    
-    response = table.query(
-        KeyConditionExpression=Key('PARTITION_KEY').begins_with(partition_key_prefix),
-        FilterExpression=Attr('PARTITION_KEY').contains(f"-{entity_type.upper()}")
-    )
-    
-    return response.get('Items', [])
+    possible_items = query_by_list_type(list_type)
+    items = []
+    for item in possible_items:
+        if entity_type in item["PARTITION_KEY"]:
+            items.append(item)
+    return items
+
 
 
 def query_by_date_range(start_date, end_date):
