@@ -3,6 +3,7 @@ import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
 import os
+from boto3.dynamodb.conditions import Key, Attr
 
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ["FRAUD_LISTS_TABLE"]
@@ -28,6 +29,8 @@ def lambda_handler(event, context):
             return handle_entity_type_query(event)
         elif path == '/lists/by-date-range':
             return handle_date_range_query(event)
+        elif path == '/lists/by-list-type-and-entity-type':
+            return handle_list_type_and_entity_type_query(event)
         else:
             return response(404, "Not Found")
 
@@ -93,6 +96,17 @@ def handle_entity_type_query(event):
     items = query_by_entity_type(entity_type)
     return response(200, json.dumps(items))
 
+def handle_list_type_and_entity_type_query(event):
+    params = event['queryStringParameters'] or {}
+    entity_type = params.get('entity_type')
+    list_type = params.get('list_type')
+
+    if not entity_type and not list_type:
+        return response(400, "Both entity type and list type are required")
+    
+    items = query_by_list_and_entity_type(list_type, entity_type)
+    return response(200, json.dumps(items))
+
 def handle_date_range_query(event):
     params = event['queryStringParameters'] or {}
     start_date = params.get('start_date')
@@ -124,6 +138,17 @@ def query_by_channel(channel):
 def query_by_entity_type(entity_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{entity_type}"))
     return response.get('Items', [])
+
+def query_by_list_and_entity_type(list_type, entity_type):
+    partition_key_prefix = f"EVALUATED-{list_type.upper()}-"
+    
+    response = table.query(
+        KeyConditionExpression=Key('PARTITION_KEY').begins_with(partition_key_prefix),
+        FilterExpression=Attr('PARTITION_KEY').contains(f"-{entity_type.upper()}")
+    )
+    
+    return response.get('Items', [])
+
 
 def query_by_date_range(start_date, end_date):
     start = datetime.strptime(start_date, "%Y-%m-%d")
