@@ -162,7 +162,23 @@ def query_by_list_and_entity_type(list_type, entity_type):
     for item in possible_items:
         if entity_type in item["PARTITION_KEY"]:
             items.append(item)
-    return items
+    items_to_send = []
+    for item in items:
+        current_item = item
+        if "ACCOUNT" in item["PARTITION_KEY"]:
+            current_item["account_id"] = item["SORT_KEY"]
+        elif "APPLICATION" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"]
+        elif "MERCHANT" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
+        elif "PRODUCT" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
+            current_item["product_id"] = item["SORT_KEY"].split("__")[2]
+        items_to_send.append(current_item)
+        
+    return items_to_send
 
 
 
