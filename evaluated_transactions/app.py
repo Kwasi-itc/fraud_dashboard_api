@@ -15,6 +15,10 @@ def lambda_handler(event, context):
         
         start_date = query_params.get('start_date')
         end_date = query_params.get('end_date')
+        list_type = query_params.get('list_type', '')
+        entity_type = query_params.get('entity_type', '')
+        channel = query_params.get('channel', '')
+        query_type = query_params.get('query_type', '')
         
         if not start_date or not end_date:
             return response(400, {'message': 'start_date and end_date are required'})
@@ -23,8 +27,11 @@ def lambda_handler(event, context):
         end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
         
         partition_key = construct_partition_key(query_params)
-        
-        items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params)
+        items = []
+        if query_type == 'entity_list':
+            items = query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, channel)
+        else:
+            items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params)
         
         return response(200, {'items': items})
     
@@ -35,6 +42,8 @@ def lambda_handler(event, context):
 def construct_partition_key(params):
     query_type = params.get('query_type', 'all')
     channel = params.get('channel', '')
+    list_type = params.get('list_type', '')
+    #entity_type = params.get('entity_type', '')
     
     if query_type == 'all' or query_type == 'normal':
         return 'EVALUATED'
@@ -48,9 +57,36 @@ def construct_partition_key(params):
         return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
     elif query_type in ['blacklist', 'watchlist', 'staff', 'limit', 'card-diff-country-6h']:
         return f"EVALUATED-{query_type.upper()}"
+    elif query_type == 'entity_list':
+        return f"EVALUATED-{list_type.upper()}"
     else:
         raise ValueError('Invalid query type')
 
+def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, channel=''):
+    partition_key = f"EVALUATED-{list_type.upper()}"
+    start_sk = f"{start_timestamp}_"
+    end_sk = f"{end_timestamp}_z"
+    
+    response = table.query(
+        KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk)
+    )
+    
+    items = response['Items']
+    
+    filtered_items = []
+    for item in items:
+        processed_transaction = json.loads(item["processed_transaction"])
+        original_transaction = processed_transaction["original_transaction"]
+        
+        # Check if the transaction matches the entity type and channel
+        if (entity_type == 'account' and original_transaction.get('account_id')) or \
+           (entity_type == 'application' and original_transaction.get('application_id')) or \
+           (entity_type == 'merchant' and original_transaction.get('merchant_id')) or \
+           (entity_type == 'product' and original_transaction.get('product_id')):
+            if not channel or original_transaction.get('channel') == channel:
+                filtered_items.append(item)
+    
+    return filtered_items
 
 
 def query_transactions(partition_key, start_timestamp, end_timestamp, query_params):
