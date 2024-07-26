@@ -46,7 +46,7 @@ def construct_partition_key(params):
         return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}__{params.get('merchant_id', '')}"
     elif query_type == 'product':
         return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
-    elif query_type in ['blacklist', 'watchlist', 'staff', 'limit', 'card-diff-country-gh']:
+    elif query_type in ['blacklist', 'watchlist', 'staff', 'limit', 'card-diff-country-6h']:
         return f"EVALUATED-{query_type.upper()}"
     else:
         raise ValueError('Invalid query type')

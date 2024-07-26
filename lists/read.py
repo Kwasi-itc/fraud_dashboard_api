@@ -137,7 +137,24 @@ def query_by_channel(channel):
 
 def query_by_entity_type(entity_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{entity_type}"))
-    return response.get('Items', [])
+    items = response.get('Items', [])
+    items_to_send = []
+    for item in items:
+        current_item = item
+        if "ACCOUNT" in item["PARTITION_KEY"]:
+            current_item["account_id"] = item["SORT_KEY"]
+        elif "APPLICATION" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"]
+        elif "MERCHANT" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
+        elif "PRODUCT" in item["PARTITION_KEY"]:
+            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
+            current_item["product_id"] = item["SORT_KEY"].split("__")[2]
+        items_to_send.append(current_item)
+        
+    return items_to_send
 
 def query_by_list_and_entity_type(list_type, entity_type):
     possible_items = query_by_list_type(list_type)
