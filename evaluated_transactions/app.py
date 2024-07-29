@@ -86,7 +86,36 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             if not channel or original_transaction.get('channel') == channel:
                 filtered_items.append(item)
     
-    return filtered_items
+    processed_items = []
+    for item in filtered_items:
+        processed_transaction = json.loads(item["processed_transaction"]) 
+        original_transaction = processed_transaction["original_transaction"]
+        evaluation = processed_transaction.get('evaluation', {})
+        account_id = original_transaction['account_id']
+        application_id = original_transaction['application_id']
+        merchant_id = original_transaction['merchant_id']
+        product_id = original_transaction['product_id']
+
+        
+        
+        processed_item = {
+            'account_id': account_id,
+            'application_id': application_id,
+            'merchant_id': merchant_id,
+            'product_id': product_id,
+            'transaction_id': original_transaction['transaction_id'],
+            'date': original_transaction['date'],
+            'amount': original_transaction['amount'],
+            'currency': original_transaction['currency'],
+            'country': original_transaction['country'],
+            'channel': original_transaction['channel'],
+            'evaluation': evaluation,
+            'relevant_aggregates': processed_transaction.get('aggregates', {})
+            #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
+        }
+        processed_items.append(processed_item)
+
+    return processed_items
 
 
 def query_transactions(partition_key, start_timestamp, end_timestamp, query_params):
