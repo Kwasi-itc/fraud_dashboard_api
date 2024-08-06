@@ -10,11 +10,19 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 
 def parse_key(key):
-    parts = key.split('-')
-    channel = parts[1]
-    entities = parts[2].split('_')
-    time_info = parts[-1].split('-')
     print("I am here 1")
+    print("The key is ", key)
+    print("The type of key is ", type(key))
+    parts = key.split('-')
+    print("The parts are ", parts)
+    print("The number of parts are ", len(parts))
+    channel = parts[1]
+    print("Channel is ", channel)
+    entities = parts[2].split('_')
+    print("The entities are ", entities)
+    print("The number of entities are ", len(entities))
+    time_info = parts[-1].split('-')
+    print("I am here 2")
     result = {
         "channel": channel,
         "account_id": "",
@@ -28,7 +36,7 @@ def parse_key(key):
         "day": "",
         "hour": ""
     }
-    
+    print("I am here 3")
     for entity in entities:
         if entity.startswith("ACCOUNT"):
             result["account_id"] = parts[3].split('_')[0]
@@ -38,7 +46,8 @@ def parse_key(key):
             result["merchant_id"] = parts[3].split('_')[2]
         elif entity == "PRODUCT":
             result["product_id"] = parts[3].split('_')[3]
-    print("I am here 2")
+    print("The current result is ", result)
+    print("I am here 4")
     if result["period"] == "MONTH":
         result["month"] = time_info[2]
     elif result["period"] == "WEEK":
@@ -56,6 +65,7 @@ def parse_key(key):
 def transform_aggregates(relevant_aggregates):
     result = {}
     print("Starting")
+    print("The relevant aggregates are ", relevant_aggregates)
     for key, value in relevant_aggregates.items():
         parsed = parse_key(key)
         category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
