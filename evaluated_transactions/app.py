@@ -9,7 +9,7 @@ dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 
-def parse_key(key):
+def parse_key(key, account_id, application_id, merchant_id, product_id):
     print("I am here 1")
     print("The key is ", key)
     print("The type of key is ", type(key))
@@ -36,10 +36,10 @@ def parse_key(key):
         period = "HOUR"
     result = {
         "channel": channel,
-        "account_id": "",
-        "application_id": "",
-        "merchant_id": "",
-        "product_id": "",
+        "account_id": account_id,
+        "application_id": application_id,
+        "merchant_id": merchant_id,
+        "product_id": product_id,
         "period": period,
         "year": year,
         "month": "",
@@ -48,15 +48,17 @@ def parse_key(key):
         "hour": ""
     }
     print("I am here 3")
-    for entity in entities:
-        if entity.startswith("ACCOUNT"):
-            result["account_id"] = parts[3].split('_')[0]
-        elif entity == "APPLICATION":
-            result["application_id"] = parts[3].split('_')[1]
-        elif entity == "MERCHANT":
-            result["merchant_id"] = parts[3].split('_')[2]
-        elif entity == "PRODUCT":
-            result["product_id"] = parts[3].split('_')[3]
+
+
+    #for entity in entities:
+    #    if entity.startswith("ACCOUNT"):
+    #        result["account_id"] = parts[3].split('_')[0]
+    #    elif entity == "APPLICATION":
+    #        result["application_id"] = parts[3].split('_')[1]
+    #    elif entity == "MERCHANT":
+    #        result["merchant_id"] = parts[3].split('_')[2]
+    #    elif entity == "PRODUCT":
+    #        result["product_id"] = parts[3].split('_')[3]
     print("The current result is ", result)
     print("I am here 4")
     if result["period"] == "MONTH":
@@ -67,18 +69,18 @@ def parse_key(key):
         result["month"] = key.split("_")[1].split("-")[2]
         result["day"] = key.split("_")[1].split("-")[3]
     elif result["period"] == "HOUR":
-        result["month"] = time_info[2]
-        result["day"] = time_info[3]
-        result["hour"] = time_info[4]
+        result["month"] = key.split("_")[1].split("-")[2]
+        result["day"] = key.split("_")[1].split("-")[3]
+        result["hour"] = key.split("_")[1].split("-")[4]
     
     return result
 
-def transform_aggregates(relevant_aggregates):
+def transform_aggregates(relevant_aggregates, account_id, application_id, merchant_id, product_id):
     result = {}
     print("Starting")
     print("The relevant aggregates are ", relevant_aggregates)
     for key, value in relevant_aggregates.items():
-        parsed = parse_key(key)
+        parsed = parse_key(key, account_id, application_id, merchant_id, product_id)
         category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
                              if parsed[f"{entity.lower()}_id"]])
         
@@ -212,7 +214,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
-            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}))
+            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
@@ -263,7 +265,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
-            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}))
+            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
