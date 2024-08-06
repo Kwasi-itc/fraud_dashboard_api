@@ -3,9 +3,90 @@ import json
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
+import re
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
+
+
+def parse_key(key):
+    parts = key.split('-')
+    channel = parts[1]
+    entities = parts[2].split('_')
+    time_info = parts[-1].split('-')
+    
+    result = {
+        "channel": channel,
+        "account_id": "",
+        "application_id": "",
+        "merchant_id": "",
+        "product_id": "",
+        "period": time_info[0],
+        "year": time_info[1],
+        "month": "",
+        "week": "",
+        "day": "",
+        "hour": ""
+    }
+    
+    for entity in entities:
+        if entity.startswith("ACCOUNT"):
+            result["account_id"] = parts[3].split('_')[0]
+        elif entity == "APPLICATION":
+            result["application_id"] = parts[3].split('_')[1]
+        elif entity == "MERCHANT":
+            result["merchant_id"] = parts[3].split('_')[2]
+        elif entity == "PRODUCT":
+            result["product_id"] = parts[3].split('_')[3]
+    
+    if result["period"] == "MONTH":
+        result["month"] = time_info[2]
+    elif result["period"] == "WEEK":
+        result["week"] = time_info[2]
+    elif result["period"] == "DAY":
+        result["month"] = time_info[2]
+        result["day"] = time_info[3]
+    elif result["period"] == "HOUR":
+        result["month"] = time_info[2]
+        result["day"] = time_info[3]
+        result["hour"] = time_info[4]
+    
+    return result
+
+def transform_aggregates(relevant_aggregates):
+    result = {}
+    
+    for key, value in relevant_aggregates.items():
+        parsed = parse_key(key)
+        category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
+                             if parsed[f"{entity.lower()}_id"]])
+        
+        if category not in result:
+            result[category] = []
+        
+        entry = {
+            "COUNT": value["COUNT"],
+            "VERSION": value["VERSION"],
+            "SUM": value["SUM"],
+            "account_id": parsed["account_id"],
+            "application_id": parsed["application_id"],
+            "merchant_id": parsed["merchant_id"],
+            "product_id": parsed["product_id"],
+            "period": parsed["period"],
+            "year": parsed["year"],
+            "month": parsed["month"],
+            "week": parsed["week"],
+            "day": parsed["day"],
+            "hour": parsed["hour"],
+            "channel": parsed["channel"]
+        }
+        
+        result[category].append(entry)
+    
+    return result
+
+
+
 
 def lambda_handler(event, context):
     try:
@@ -110,7 +191,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
-            'relevant_aggregates': processed_transaction.get('aggregates', {})
+            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}))
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
@@ -161,7 +242,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
-            'relevant_aggregates': processed_transaction.get('aggregates', {})
+            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}))
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
         processed_items.append(processed_item)
@@ -177,6 +258,8 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         processed_items = possible_processed_items
 
     return processed_items
+            
+
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):
     relevant_aggregates = {}
