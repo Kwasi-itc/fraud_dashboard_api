@@ -23,14 +23,25 @@ def parse_key(key):
     print("The number of entities are ", len(entities))
     time_info = parts[-1].split('-')
     print("I am here 2")
+
+    year = key.split("_")[1].split("-")[1]
+    period = ""
+    if "MONTH" in key:
+        period = "MONTH"
+    elif "WEEK" in key:
+        period = "WEEK"
+    elif "DAY" in key:
+        period = "DAY"
+    elif "HOUR" in key:
+        period = "HOUR"
     result = {
         "channel": channel,
         "account_id": "",
         "application_id": "",
         "merchant_id": "",
         "product_id": "",
-        "period": time_info[0],
-        "year": time_info[1],
+        "period": period,
+        "year": year,
         "month": "",
         "week": "",
         "day": "",
@@ -49,12 +60,12 @@ def parse_key(key):
     print("The current result is ", result)
     print("I am here 4")
     if result["period"] == "MONTH":
-        result["month"] = time_info[2]
+        result["month"] = key.split("_")[1].split("-")[2]
     elif result["period"] == "WEEK":
-        result["week"] = time_info[2]
+        result["week"] = key.split("_")[1].split("-")[2]
     elif result["period"] == "DAY":
-        result["month"] = time_info[2]
-        result["day"] = time_info[3]
+        result["month"] = key.split("_")[1].split("-")[2]
+        result["day"] = key.split("_")[1].split("-")[3]
     elif result["period"] == "HOUR":
         result["month"] = time_info[2]
         result["day"] = time_info[3]
