@@ -90,10 +90,16 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
         category = ""
         if "ACCOUNT" in key:
             category = "ACCOUNT"
+            parsed["application_id"] = ""
+            parsed['merchant_id'] = ""
+            parsed['product_id'] = ""
         if "APPLICATION" in key:
             category = "ACCOUNT_APPLICATION"
+            parsed['merchant_id'] = ""
+            parsed['product_id'] = ""
         if "MERCHANT" in key:
             category = "ACCOUNT_APPLICATION_MERCHANT"
+            parsed['product_id'] = ""
         if "PRODUCT" in key:
             category = "ACCOUNT_APPLICATION_MERCHANT_PRODUCT"
         
