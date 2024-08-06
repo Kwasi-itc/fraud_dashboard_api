@@ -62,16 +62,16 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
     print("The current result is ", result)
     print("I am here 4")
     if result["period"] == "MONTH":
-        result["month"] = key.split("_")[1].split("-")[2]
+        result["month"] = key.split("MONTH")[1].split("-")[2]
     elif result["period"] == "WEEK":
-        result["week"] = key.split("_")[1].split("-")[2]
+        result["week"] = key.split("WEEK")[1].split("-")[2]
     elif result["period"] == "DAY":
-        result["month"] = key.split("_")[1].split("-")[2]
-        result["day"] = key.split("_")[1].split("-")[3]
+        result["month"] = key.split("DAY")[1].split("-")[2]
+        result["day"] = key.split("DAY")[1].split("-")[3]
     elif result["period"] == "HOUR":
-        result["month"] = key.split("_")[1].split("-")[2]
-        result["day"] = key.split("_")[1].split("-")[3]
-        result["hour"] = key.split("_")[1].split("-")[4]
+        result["month"] = key.split("HOUR")[1].split("-")[2]
+        result["day"] = key.split("HOUR")[1].split("-")[3]
+        result["hour"] = key.split("HOUR")[1].split("-")[4]
     
     return result
 
