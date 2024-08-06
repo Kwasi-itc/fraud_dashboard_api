@@ -24,16 +24,20 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
     time_info = parts[-1].split('-')
     print("I am here 2")
 
-    year = key.split("_")[1].split("-")[1]
+    year = ""
     period = ""
     if "MONTH" in key:
         period = "MONTH"
+        year = key.split("MONTH")[1].split("-")[1]
     elif "WEEK" in key:
         period = "WEEK"
+        year = key.split("WEEK")[1].split("-")[1]
     elif "DAY" in key:
         period = "DAY"
+        year = key.split("DAY")[1].split("-")[1]
     elif "HOUR" in key:
         period = "HOUR"
+        year = key.split("HOUR")[1].split("-")[1]
     result = {
         "channel": channel,
         "account_id": account_id,
