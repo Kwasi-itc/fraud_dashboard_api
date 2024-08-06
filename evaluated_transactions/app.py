@@ -14,7 +14,7 @@ def parse_key(key):
     channel = parts[1]
     entities = parts[2].split('_')
     time_info = parts[-1].split('-')
-    
+    print("I am here 1")
     result = {
         "channel": channel,
         "account_id": "",
@@ -38,7 +38,7 @@ def parse_key(key):
             result["merchant_id"] = parts[3].split('_')[2]
         elif entity == "PRODUCT":
             result["product_id"] = parts[3].split('_')[3]
-    
+    print("I am here 2")
     if result["period"] == "MONTH":
         result["month"] = time_info[2]
     elif result["period"] == "WEEK":
@@ -55,7 +55,7 @@ def parse_key(key):
 
 def transform_aggregates(relevant_aggregates):
     result = {}
-    
+    print("Starting")
     for key, value in relevant_aggregates.items():
         parsed = parse_key(key)
         category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
