@@ -85,8 +85,17 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
     print("The relevant aggregates are ", relevant_aggregates)
     for key, value in relevant_aggregates.items():
         parsed = parse_key(key, account_id, application_id, merchant_id, product_id)
-        category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
-                             if parsed[f"{entity.lower()}_id"]])
+        #category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
+        #                     if parsed[f"{entity.lower()}_id"]])
+        category = ""
+        if "ACCOUNT" in key:
+            category = "ACCOUNT"
+        if "APPLICATION" in key:
+            category = "ACCOUNT_APPLICATION"
+        if "MERCHANT" in key:
+            category = "ACCOUNT_APPLICATION_MERCHANT"
+        if "PRODUCT" in key:
+            category = "ACCOUNT_APPLICATION_MERCHANT_PRODUCT"
         
         if category not in result:
             result[category] = []
