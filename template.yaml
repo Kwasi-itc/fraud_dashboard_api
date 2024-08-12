@@ -231,6 +231,36 @@ Resources:
         - AWSLambdaSQSQueueExecutionRole
         - DynamoDBCrudPolicy:
             TableName: '*'
+  
+
+  CaseManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./case_management
+      Handler: app.lambda_handler
+      Events:
+        CreateCase:
+          Type: Api
+          Properties:
+            Path: /case
+            Method: POST
+        UpdateCaseStatus:
+          Type: Api
+          Properties:
+            Path: /case/status
+            Method: PUT
+        GetCase:
+          Type: Api
+          Properties:
+            Path: /case
+            Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
+
+# Make sure to add the necessary IAM permissions for this function to access your DynamoDB table
 
 Outputs:
   ApiURL:
