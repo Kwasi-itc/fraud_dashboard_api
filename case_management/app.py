@@ -24,6 +24,7 @@ def create_case(event, context):
     try:
         body = json.loads(event['body'])
         transaction_id = body.get('transaction_id')
+        status = body.get('status')
         
         if not transaction_id:
             return response(400, {'message': 'transaction_id is required'})
@@ -31,7 +32,7 @@ def create_case(event, context):
         item = {
             'PARTITION_KEY': 'CASE',
             'SORT_KEY': transaction_id,
-            'status': 'OPEN',
+            'status': status,
             'created_at': datetime.now().isoformat()
         }
         
