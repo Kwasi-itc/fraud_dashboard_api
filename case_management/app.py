@@ -17,6 +17,10 @@ def lambda_handler(event, context):
         return update_case_status(event, context)
     elif http_method == 'GET' and resource == '/case':
         return get_case(event, context)
+    elif http_method == 'GET' and resource == '/cases/open':
+        return get_open_cases(event, context)
+    elif http_method == 'PUT' and resource == '/case/close':
+        return close_case(event, context)
     else:
         return response(400, {'message': 'Invalid endpoint'})
 
@@ -78,6 +82,54 @@ def get_case(event, context):
             return response(404, {'message': 'Case not found'})
         
         return response(200, result['Item'])
+    except Exception as e:
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
+
+def get_open_cases(event, context):
+    try:
+        result = table.query(
+            KeyConditionExpression=Key('PARTITION_KEY').eq('CASE'),
+            FilterExpression=Key('status').eq('OPEN')
+        )
+        
+        items = result.get('Items', [])
+        return response(200, {'open_cases': items})
+    except Exception as e:
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
+
+def close_case(event, context):
+    try:
+        body = json.loads(event['body'])
+        transaction_id = body.get('transaction_id')
+        
+        if not transaction_id:
+            return response(400, {'message': 'transaction_id is required'})
+        
+        # Get the existing case
+        result = table.get_item(Key={'PARTITION_KEY': 'CASE', 'SORT_KEY': transaction_id})
+        
+        if 'Item' not in result:
+            return response(404, {'message': 'Case not found'})
+        
+        case = result['Item']
+        
+        # Delete the existing case
+        table.delete_item(Key={'PARTITION_KEY': 'CASE', 'SORT_KEY': transaction_id})
+        
+        # Create a new closed case
+        closed_case = {
+            'PARTITION_KEY': 'CLOSED_CASE',
+            'SORT_KEY': transaction_id,
+            'status': 'CLOSED',
+            'created_at': case.get('created_at'),
+            'closed_at': datetime.now().isoformat()
+        }
+        
+        table.put_item(Item=closed_case)
+        
+        return response(200, {'message': 'Case closed successfully'})
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})

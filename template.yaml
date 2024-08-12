@@ -254,6 +254,16 @@ Resources:
           Properties:
             Path: /case
             Method: GET
+        GetAllCases:
+          Type: Api
+          Properties:
+            Path: /cases/open
+            Method: GET
+        CloseCase:
+          Type: Api
+          Properties:
+            Path: /case/close
+            Method: PUT
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
