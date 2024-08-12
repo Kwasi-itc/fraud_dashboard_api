@@ -10,6 +10,7 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 def lambda_handler(event, context):
     http_method = event['httpMethod']
     resource = event['resource']
+    print("The event is ", event)
 
     if http_method == 'POST' and resource == '/case':
         return create_case(event, context)
@@ -27,6 +28,7 @@ def lambda_handler(event, context):
 def create_case(event, context):
     try:
         body = json.loads(event['body'])
+        print("The body is ", body)
         transaction_id = body.get('transaction_id')
         status = body.get('status')
         
@@ -50,6 +52,7 @@ def create_case(event, context):
 def update_case_status(event, context):
     try:
         body = json.loads(event['body'])
+        print("The body is ", body)
         transaction_id = body.get('transaction_id')
         new_status = body.get('status')
         
@@ -71,6 +74,7 @@ def update_case_status(event, context):
 def get_case(event, context):
     try:
         params = event['queryStringParameters'] or {}
+        print("The params are ", params)
         transaction_id = params.get('transaction_id')
         
         if not transaction_id:
@@ -89,11 +93,11 @@ def get_case(event, context):
 def get_open_cases(event, context):
     try:
         result = table.query(
-            KeyConditionExpression=Key('PARTITION_KEY').eq('CASE'),
-            FilterExpression=Key('status').eq('OPEN')
+            KeyConditionExpression=Key('PARTITION_KEY').eq('CASE')
         )
         
         items = result.get('Items', [])
+        print("The items are ", items)
         return response(200, {'open_cases': items})
     except Exception as e:
         print("An error occurred ", e)
