@@ -157,9 +157,9 @@ def lambda_handler(event, context):
         partition_key = construct_partition_key(query_params)
         items = []
         if query_type == 'entity_list':
-            items = query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, channel)
+            items = query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, query_type, channel)
         else:
-            items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params)
+            items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type)
         
         return response(200, {'items': items})
     
@@ -190,7 +190,7 @@ def construct_partition_key(params):
     else:
         raise ValueError('Invalid query type')
 
-def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, channel=''):
+def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, query_type, channel=''):
     partition_key = f"EVALUATED-{list_type.upper()}"
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
@@ -241,12 +241,16 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
-        processed_items.append(processed_item)
+        if query_type == "all":
+            processed_items.append(processed_item)
+        else:
+            if channel == processed_item['channel']:
+                processed_items.append(processed_item)
 
     return processed_items
 
 
-def query_transactions(partition_key, start_timestamp, end_timestamp, query_params):
+def query_transactions(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type):
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
     
@@ -292,7 +296,12 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
-        processed_items.append(processed_item)
+        if query_type == "all":
+            processed_items.append(processed_item)
+        else:
+            if channel == processed_item['channel']:
+                processed_items.append(processed_item)
+        ##The query comes with channel all the time, so if channel is 
     
     print("The query params when trying to get the items are ", query_params)
     query_type = query_params.get('query_type', 'all')

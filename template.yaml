@@ -259,6 +259,11 @@ Resources:
           Properties:
             Path: /cases/open
             Method: GET
+        GetAllClosedCases:
+          Type: Api
+          Properties:
+            Path: /cases/closed
+            Method: GET
         CloseCase:
           Type: Api
           Properties:

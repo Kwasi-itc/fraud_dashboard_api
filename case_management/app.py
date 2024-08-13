@@ -20,6 +20,8 @@ def lambda_handler(event, context):
         return get_case(event, context)
     elif http_method == 'GET' and resource == '/cases/open':
         return get_open_cases(event, context)
+    elif http_method == 'GET' and resource == '/cases/closed':
+        return get_closed_cases(event, context)
     elif http_method == 'PUT' and resource == '/case/close':
         return close_case(event, context)
     else:
@@ -99,6 +101,19 @@ def get_open_cases(event, context):
         items = result.get('Items', [])
         print("The items are ", items)
         return response(200, {'open_cases': items})
+    except Exception as e:
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
+
+def get_closed_cases(event, context):
+    try:
+        result = table.query(
+            KeyConditionExpression=Key('PARTITION_KEY').eq('CLOSED_CASE')
+        )
+        
+        items = result.get('Items', [])
+        print("The items are ", items)
+        return response(200, {'closed_cases': items})
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
