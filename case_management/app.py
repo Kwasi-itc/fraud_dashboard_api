@@ -3,6 +3,8 @@ import json
 import boto3
 from boto3.dynamodb.conditions import Key
 from datetime import datetime
+from decimal import Decimal
+
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
@@ -156,7 +158,7 @@ def close_case(event, context):
 def response(status_code, body):
     return {
         'statusCode': status_code,
-        'body': json.dumps(body),
+        'body': json.dumps(body, default=decimal_default),
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
@@ -164,3 +166,8 @@ def response(status_code, body):
         },
     }
 
+
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
