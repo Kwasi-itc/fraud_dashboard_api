@@ -20,7 +20,7 @@ def read_limit(event, limit_type):
             response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
             print("The response is ", response)
             item = response.get('Item', [])
-            if len(item) != 1:
+            if len(item) != 1 and item != []:
                 item = [item]
             if item != []:
                 for an_item in item:
