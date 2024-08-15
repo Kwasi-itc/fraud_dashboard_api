@@ -18,6 +18,7 @@ def read_limit(event, limit_type):
         stuff_to_send = []
         if sort_key:
             response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
+            print("The response is ", response)
             item = response.get('Item')
             if len(item) != 1:
                 item = [item]
@@ -42,6 +43,7 @@ def read_limit(event, limit_type):
 
         else:
             response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
+            print("The response is ", response)
             item = response.get('Items')
             for an_item in item:
                 current_item = an_item
@@ -66,7 +68,7 @@ def read_limit(event, limit_type):
         return alternate_response_lambda(200, json.dumps(stuff_to_send, default=decimal_default))
     except Exception as e:
         print("An error occured ", e)
-        return response_lambda(500, {"message": "An error occured " + e})
+        return response_lambda(500, {"message": "An error occured " + str(e)})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
