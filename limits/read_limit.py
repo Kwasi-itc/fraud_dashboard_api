@@ -19,28 +19,28 @@ def read_limit(event, limit_type):
         if sort_key:
             response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
             print("The response is ", response)
-            item = response.get('Item')
+            item = response.get('Item', [])
             if len(item) != 1:
                 item = [item]
-            for an_item in item:
-                current_item = an_item
-                current_item["account_id"] = ""
-                current_item["application_id"] = ""
-                current_item["merchant_id"] = ""
-                current_item["product_id"] = ""
-                if limit_type.lower() == "account":
+            if item != []:
+                for an_item in item:
+                    current_item = an_item
                     current_item["account_id"] = ""
-                elif limit_type.lower() == "account-application":
-                    current_item["application_id"] = current_item["SORT_KEY"]
-                elif limit_type.lower() == "account-application-merchant":
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
-                elif limit_type.lower() == "account-application-merchant-product":
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
-                    current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
-                stuff_to_send.append(current_item)                    
-
+                    current_item["application_id"] = ""
+                    current_item["merchant_id"] = ""
+                    current_item["product_id"] = ""
+                    if limit_type.lower() == "account":
+                        current_item["account_id"] = ""
+                    elif limit_type.lower() == "account-application":
+                        current_item["application_id"] = current_item["SORT_KEY"]
+                    elif limit_type.lower() == "account-application-merchant":
+                        current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                        current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
+                    elif limit_type.lower() == "account-application-merchant-product":
+                        current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                        current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
+                        current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
+                    stuff_to_send.append(current_item)                    
         else:
             response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
             print("The response is ", response)
