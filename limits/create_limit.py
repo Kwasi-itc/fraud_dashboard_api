@@ -41,10 +41,12 @@ def construct_keys(params, limit_type):
     
     partition_key = f"LIMITS-{channel}-{limit_type}"
     sort_key = "__".join(filter(None, [
-        params.get('account_id'),
         params.get('application_id'),
         params.get('merchant_id'),
         params.get('product_id')
     ]))
+
+    if limit_type.lower() == "account":
+        sort_key = "-"
     
     return partition_key, sort_key

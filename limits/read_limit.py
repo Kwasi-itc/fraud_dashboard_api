@@ -28,19 +28,16 @@ def read_limit(event, limit_type):
                 current_item["merchant_id"] = ""
                 current_item["product_id"] = ""
                 if limit_type.lower() == "account":
-                    current_item["account_id"] = current_item["SORT_KEY"]
+                    current_item["account_id"] = ""
                 elif limit_type.lower() == "account-application":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
+                    current_item["application_id"] = current_item["SORT_KEY"]
                 elif limit_type.lower() == "account-application-merchant":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[2]
+                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
                 elif limit_type.lower() == "account-application-merchant-product":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[2]
-                    current_item["product_id"] = current_item["SORT_KEY"].split("__")[3]
+                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
+                    current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
                 stuff_to_send.append(current_item)                    
 
         else:
@@ -53,19 +50,16 @@ def read_limit(event, limit_type):
                 current_item["merchant_id"] = ""
                 current_item["product_id"] = ""
                 if limit_type.lower() == "account":
-                    current_item["account_id"] = current_item["SORT_KEY"]
+                    current_item["account_id"] = ""
                 elif limit_type.lower() == "account-application":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
+                    current_item["application_id"] = current_item["SORT_KEY"]
                 elif limit_type.lower() == "account-application-merchant":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[2]
+                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
                 elif limit_type.lower() == "account-application-merchant-product":
-                    current_item["account_id"] = current_item["SORT_KEY"].split("__")[0]
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[1]
-                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[2]
-                    current_item["product_id"] = current_item["SORT_KEY"].split("__")[3]
+                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
+                    current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
                 stuff_to_send.append(current_item)
 
         print("The item is ", stuff_to_send)
@@ -81,10 +75,12 @@ def construct_keys(params, limit_type):
     
     partition_key = f"LIMITS-{channel}-{limit_type}"
     sort_key = "__".join(filter(None, [
-        params.get('account_id'),
         params.get('application_id'),
         params.get('merchant_id'),
         params.get('product_id')
     ]))
+
+    if limit_type.lower() == "account":
+        sort_key = "-"
     
     return partition_key, sort_key
