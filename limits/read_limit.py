@@ -63,7 +63,7 @@ def read_limit(event, limit_type):
                 stuff_to_send.append(current_item)
 
         print("The item is ", stuff_to_send)
-        return alternate_response_lambda(200, json.dumps(stuff_to_send, default=decimal_default)) if stuff_to_send else response_lambda(404, {"message": "Limit not found"})
+        return alternate_response_lambda(200, json.dumps(stuff_to_send, default=decimal_default))
     except Exception as e:
         print("An error occured ", e)
         return response_lambda(500, {"message": "An error occured " + e})
