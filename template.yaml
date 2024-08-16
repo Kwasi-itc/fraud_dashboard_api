@@ -5,6 +5,7 @@ Description: FraudPy Dashboard API
 Globals:
   Function:
     Timeout: 30
+    MemorySize: 1024
     Runtime: python3.8
     Environment:
       Variables:
