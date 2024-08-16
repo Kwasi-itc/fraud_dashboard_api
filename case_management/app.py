@@ -143,7 +143,7 @@ def close_case(event, context):
         closed_case = {
             'PARTITION_KEY': 'CLOSED_CASE',
             'SORT_KEY': transaction_id,
-            'status': 'CLOSED',
+            'status': case.get('status'),#'CLOSED',
             'created_at': case.get('created_at'),
             'closed_at': datetime.now().isoformat()
         }
