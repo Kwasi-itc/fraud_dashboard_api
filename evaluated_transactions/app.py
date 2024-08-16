@@ -183,7 +183,7 @@ def construct_partition_key(params):
         return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}__{params.get('merchant_id', '')}"
     elif query_type == 'product':
         return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
-    elif query_type in ['blacklist', 'watchlist', 'staff', 'limit', 'card-diff-country-6h']:
+    elif query_type in ['blacklist', 'watchlist', 'stafflist', 'limit', 'card-diff-country-6h']:
         return f"EVALUATED-{query_type.upper()}"
     elif query_type == 'entity_list':
         return f"EVALUATED-{list_type.upper()}"
