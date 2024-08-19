@@ -10,19 +10,11 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 
 def parse_key(key, account_id, application_id, merchant_id, product_id):
-    print("I am here 1")
-    print("The key is ", key)
-    print("The type of key is ", type(key))
     parts = key.split('-')
-    print("The parts are ", parts)
-    print("The number of parts are ", len(parts))
     channel = parts[1]
-    print("Channel is ", channel)
     entities = parts[2].split('_')
-    print("The entities are ", entities)
-    print("The number of entities are ", len(entities))
     time_info = parts[-1].split('-')
-    print("I am here 2")
+    
 
     year = ""
     period = ""
@@ -51,20 +43,9 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
         "day": "",
         "hour": ""
     }
-    print("I am here 3")
+    
 
 
-    #for entity in entities:
-    #    if entity.startswith("ACCOUNT"):
-    #        result["account_id"] = parts[3].split('_')[0]
-    #    elif entity == "APPLICATION":
-    #        result["application_id"] = parts[3].split('_')[1]
-    #    elif entity == "MERCHANT":
-    #        result["merchant_id"] = parts[3].split('_')[2]
-    #    elif entity == "PRODUCT":
-    #        result["product_id"] = parts[3].split('_')[3]
-    print("The current result is ", result)
-    print("I am here 4")
     if result["period"] == "MONTH":
         result["month"] = key.split("MONTH")[1].split("-")[2]
     elif result["period"] == "WEEK":
@@ -81,12 +62,8 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
 
 def transform_aggregates(relevant_aggregates, account_id, application_id, merchant_id, product_id):
     result = {}
-    print("Starting")
-    print("The relevant aggregates are ", relevant_aggregates)
     for key, value in relevant_aggregates.items():
         parsed = parse_key(key, account_id, application_id, merchant_id, product_id)
-        #category = '_'.join([entity for entity in ["ACCOUNT", "APPLICATION", "MERCHANT", "PRODUCT"] 
-        #                     if parsed[f"{entity.lower()}_id"]])
         category = ""
         if "ACCOUNT" in key:
             category = "ACCOUNT"
@@ -152,7 +129,8 @@ def lambda_handler(event, context):
             return response(400, {'message': 'start_date and end_date are required'})
         
         start_timestamp = int(datetime.strptime(start_date, '%Y-%m-%d').timestamp())
-        end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
+        end_timestamp = int((datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).timestamp() - 1)
+        #end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
         
         partition_key = construct_partition_key(query_params)
         items = []
