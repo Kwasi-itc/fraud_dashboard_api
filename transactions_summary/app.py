@@ -17,7 +17,9 @@ def lambda_handler(event, context):
             return response(400, {'message': 'start_date and end_date are required'})
         
         start_timestamp = int(datetime.strptime(start_date, '%Y-%m-%d').timestamp())
-        end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
+        end_timestamp = int((datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).timestamp() - 1)
+
+        #end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
         
         summary = {
             'blacklist': {'count': 0, 'sum': 0},
