@@ -344,9 +344,19 @@ def get_relevant_aggregates(aggregates, transaction, evaluation):
     return relevant_aggregates
 
 def response(status_code, body):
+    response_message = ""
+    if status_code == 200:
+        response_message = "Operation Successful"
+    else:
+        response_message = "Unsuccessful operation"
+    body_to_send = {
+        "responseCode": status_code,
+        "responseMessage": response_message,
+        "data": body
+    }
     return {
         'statusCode': status_code,
-        'body': json.dumps(body),
+        'body': json.dumps(body_to_send),
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',

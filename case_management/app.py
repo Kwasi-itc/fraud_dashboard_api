@@ -154,11 +154,22 @@ def close_case(event, context):
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
+    
 
 def response(status_code, body):
+    response_message = ""
+    if status_code == 200:
+        response_message = "Operation Successful"
+    else:
+        response_message = "Unsuccessful operation"
+    body_to_send = {
+        "responseCode": status_code,
+        "responseMessage": response_message,
+        "data": body
+    }
     return {
         'statusCode': status_code,
-        'body': json.dumps(body, default=decimal_default),
+        'body': json.dumps(body_to_send, default=decimal_default),
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',

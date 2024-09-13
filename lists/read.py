@@ -191,10 +191,17 @@ def query_by_date_range(start_date, end_date):
     return response.get('Items', [])
 
 def response(status_code, body):
+    response_message = "Operation Successful" if status_code == 200 else "Unsuccessful operation"
+    body_to_send = {
+        "responseCode": status_code,
+        "responseMessage": response_message,
+        "data": body
+    }
     return {
         'statusCode': status_code,
-        'body': body,
+        'body': json.dumps(body_to_send),
         'headers': {
+            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': True,
         },

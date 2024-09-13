@@ -3,12 +3,35 @@ import boto3
 from botocore.exceptions import ClientError
 import os
 from datetime import datetime
+from decimal import Decimal
 
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ["FRAUD_LISTS_TABLE"]
 table = dynamodb.Table(table_name)
 
 ALLOWED_LIST_TYPES = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
+
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
+
+def response(status_code, body):
+    response_message = "Operation Successful" if status_code == 200 else "Unsuccessful operation"
+    body_to_send = {
+        "responseCode": status_code,
+        "responseMessage": response_message,
+        "data": body
+    }
+    return {
+        'statusCode': status_code,
+        'body': json.dumps(body_to_send, default=decimal_default),
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        },
+    }
 
 def lambda_handler(event, context):
     try:
@@ -24,14 +47,7 @@ def lambda_handler(event, context):
         product_id = body['product_id']
 
         if list_type not in ALLOWED_LIST_TYPES:
-            return {
-                'statusCode': 400,
-                'body': json.dumps(f"Error: Invalid list_type. Allowed types are {', '.join(ALLOWED_LIST_TYPES)}"),
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Credentials': True,
-                },
-            }
+            return response(400, f"Error: Invalid list_type. Allowed types are {', '.join(ALLOWED_LIST_TYPES)}")
 
         partition_key = f"{list_type}-{channel}-{entity_type}"
         sort_key = ""
@@ -44,17 +60,9 @@ def lambda_handler(event, context):
         elif entity_type == "PRODUCT":
             sort_key = application_id + "__" + merchant_id + "__" + product_id
         else:
-            return {
-            'statusCode': 500,
-            'body': json.dumps({'message': "entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"}),
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Credentials': True,
-            },
-        }
+            return response(500, "entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT")
 
-
-        response = table.put_item(
+        response_db = table.put_item(
             Item={
                 'PARTITION_KEY': partition_key,
                 'SORT_KEY': sort_key,
@@ -62,24 +70,11 @@ def lambda_handler(event, context):
             }
         )
 
-        print("The response after putting item on DB is ", response)
+        print("The response after putting item on DB is ", response_db)
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({'message': 'Item created successfully'}),
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Credentials': True,
-            },
-        }
+        return response(200, {'message': 'Item created successfully'})
+
     except ClientError as e:
-        print("An error occured ", e)
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'message': f"Error: {str(e)}"}),
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Credentials': True,
-            },
-        }
+        print("An error occurred ", e)
+        return response(500, {'message': f"Error: {str(e)}"})
 
