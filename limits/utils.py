@@ -43,7 +43,7 @@ def alternate_response_lambda(status_code, body):
     }
     dictionary = {
         'statusCode': status_code,
-        'body': body_to_send,
+        'body': json.dumps(body_to_send, default=decimal_default),
         'headers': {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': True,
