@@ -195,7 +195,7 @@ def response(status_code, body):
     body_to_send = {
         "responseCode": status_code,
         "responseMessage": response_message,
-        "data": body
+        "data": json.dumps(body)
     }
     return {
         'statusCode': status_code,
