@@ -58,13 +58,13 @@ def handle_specific_query(event):
     elif entity_type == "PRODUCT":
         entity_id = application_id + "__" + merchant_id + "__" + product_id
     else:
-        return response(400, json.dumps({"error": "Entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"}))
+        return response(400, {"error": "Entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"})
 
     if not all([list_type, channel, entity_type]):
         return response(400, "Missing required parameters")
 
     items = query_specific(list_type, channel, entity_type, entity_id)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def handle_list_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -74,7 +74,7 @@ def handle_list_type_query(event):
         return response(400, "List type is required")
 
     items = query_by_list_type(list_type)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def handle_channel_query(event):
     params = event['queryStringParameters'] or {}
@@ -84,7 +84,7 @@ def handle_channel_query(event):
         return response(400, "Channel is required")
 
     items = query_by_channel(channel)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def handle_entity_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -94,7 +94,7 @@ def handle_entity_type_query(event):
         return response(400, "Entity type is required")
 
     items = query_by_entity_type(entity_type)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def handle_list_type_and_entity_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -105,7 +105,7 @@ def handle_list_type_and_entity_type_query(event):
         return response(400, "Both entity type and list type are required")
     
     items = query_by_list_and_entity_type(list_type, entity_type)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def handle_date_range_query(event):
     params = event['queryStringParameters'] or {}
@@ -116,7 +116,7 @@ def handle_date_range_query(event):
         return response(400, "Both start_date and end_date are required")
 
     items = query_by_date_range(start_date, end_date)
-    return response(200, json.dumps(items))
+    return response(200, items)
 
 def query_specific(list_type, channel, entity_type, entity_id):
     partition_key = f"{list_type}-{channel}-{entity_type}"
@@ -195,7 +195,7 @@ def response(status_code, body):
     body_to_send = {
         "responseCode": status_code,
         "responseMessage": response_message,
-        "data": json.dumps(body)
+        "data": body
     }
     return {
         'statusCode': status_code,
