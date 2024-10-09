@@ -41,10 +41,10 @@ def lambda_handler(event, context):
         list_type = body['list_type']
         channel = body['channel']
         entity_type = body['entity_type']
-        account_id = body['account_id']
-        application_id = body['application_id']
-        merchant_id = body['merchant_id']
-        product_id = body['product_id']
+        account_id = body.get('account_id')
+        application_id = body.get('application_id')
+        merchant_id = body.get('merchant_id')
+        product_id = body.get('product_id')
 
         if list_type not in ALLOWED_LIST_TYPES:
             return response(400, f"Error: Invalid list_type. Allowed types are {', '.join(ALLOWED_LIST_TYPES)}")
