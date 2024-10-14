@@ -34,6 +34,7 @@ def create_case(event, context):
         body = json.loads(event['body'])
         print("The body is ", body)
         transaction_id = body.get('transaction_id')
+        assigned_to = body.get('assigned_to')
         status = body.get('status')
         
         if not transaction_id:
@@ -43,6 +44,7 @@ def create_case(event, context):
             'PARTITION_KEY': 'CASE',
             'SORT_KEY': transaction_id,
             'status': status,
+            'assigned_to': assigned_to,
             'created_at': datetime.now().isoformat()
         }
         
@@ -58,6 +60,7 @@ def update_case_status(event, context):
         body = json.loads(event['body'])
         print("The body is ", body)
         transaction_id = body.get('transaction_id')
+        new_assigned_to = body.get('assigned_to')
         new_status = body.get('status')
         
         if not transaction_id or not new_status:
@@ -65,9 +68,9 @@ def update_case_status(event, context):
         
         table.update_item(
             Key={'PARTITION_KEY': 'CASE', 'SORT_KEY': transaction_id},
-            UpdateExpression='SET #status = :status, updated_at = :updated_at',
+            UpdateExpression='SET #status = :status, updated_at = :updated_at, assigned_to = :assigned_to',
             ExpressionAttributeNames={'#status': 'status'},
-            ExpressionAttributeValues={':status': new_status, ':updated_at': datetime.now().isoformat()}
+            ExpressionAttributeValues={':status': new_status, ':updated_at': datetime.now().isoformat(), ':assigned_to': new_assigned_to}
         )
         
         return response(200, {'message': 'Case status updated successfully'})
@@ -182,3 +185,8 @@ def decimal_default(obj):
     if isinstance(obj, Decimal):
         return float(obj)
     raise TypeError
+
+
+##Assigned investigator coming with the transaction
+##Affected transactions
+##Pagination

@@ -151,7 +151,7 @@ def construct_partition_key(params):
     list_type = params.get('list_type', '')
     #entity_type = params.get('entity_type', '')
     
-    if query_type == 'all' or query_type == 'normal':
+    if query_type == 'all' or query_type == 'normal' or query_type == 'affected':
         return 'EVALUATED'
     elif query_type == 'account':
         return f"EVALUATED-{channel}-ACCOUNT-{params.get('account_id', '')}"
@@ -288,6 +288,13 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         possible_processed_items = []
         for processed_item in processed_items:
             if processed_item["evaluation"] == {}:
+                possible_processed_items.append(processed_item)
+        processed_items = possible_processed_items
+    
+    if query_type == 'affected':
+        possible_processed_items = []
+        for processed_item in processed_items:
+            if processed_item["evaluation"] != {}:
                 possible_processed_items.append(processed_item)
         processed_items = possible_processed_items
 
