@@ -115,6 +115,10 @@ def get_case(event, context):
         
         if 'Item' not in result:
             return response(404, {'message': 'Case not found'})
+        else:
+            result["Item"]["transaction_id"] = result["Item"]["SORT_KEY"]
+            result["Item"].pop("PARTITION_KEY", None)
+            result["Item"].pop("SORT_KEY", None)
         
         return response(200, result['Item'])
     except Exception as e:
@@ -129,7 +133,15 @@ def get_open_cases(event, context):
         
         items = result.get('Items', [])
         print("The items are ", items)
-        return response(200, {'open_cases': items})
+        current_item = {}
+        final_items = []
+        for item in items:
+            current_item = item
+            current_item["transaction_id"] = current_item["SORT_KEY"]
+            current_item.pop("PARTITION_KEY", None)
+            current_item.pop("SORT_KEY", None)
+            final_items.append(current_item)
+        return response(200, {'open_cases': final_items})
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
