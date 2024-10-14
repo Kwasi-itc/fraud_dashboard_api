@@ -4,6 +4,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from datetime import datetime
 from decimal import Decimal
+import uuid
 
 
 dynamodb = boto3.resource('dynamodb')
@@ -51,6 +52,29 @@ def create_case(event, context):
         table.put_item(Item=item)
         
         return response(200, {'message': 'Case created successfully', 'case_id': transaction_id})
+    except Exception as e:
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
+
+def create_report(event, context):
+    try:
+        body = json.loads(event['body'])
+        print("The body is ", body)
+        transaction_id = body.get('transaction_id')
+        extra_sort_key = str(uuid.uuid4())
+        
+        if not transaction_id:
+            return response(400, {'message': 'transaction_id is required'})
+        
+        item = {
+            'PARTITION_KEY': 'CASE',
+            'SORT_KEY': transaction_id + '#' + extra_sort_key,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        table.put_item(Item=item)
+        
+        return response(200, {'message': 'Report created successfully', 'report_id': transaction_id + '#' + extra_sort_key})
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
