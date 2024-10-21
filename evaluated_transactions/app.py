@@ -316,7 +316,11 @@ def assigned_status(transaction_id):
     if len(items) == 0:
         return ""
     else:
-        return items[0]["assigned_to"]["email"]
+        try:
+            return items[0]["assigned_to"]["email"]
+        except Exception as e:
+            print("Found an error in the retrieval of a case's email ", e)
+            return ""
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):
     relevant_aggregates = {}
