@@ -304,6 +304,9 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     return processed_items
             
 def assigned_status(transaction_id):
+    print("The transaction id is ", transaction_id)
+    if transaction_id == "":
+        return ""
     response = table.query(
         KeyConditionExpression=Key('PARTITION_KEY').eq("CASE") & Key('SORT_KEY').eq(transaction_id)
     )
