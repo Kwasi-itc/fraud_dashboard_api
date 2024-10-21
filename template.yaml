@@ -270,6 +270,11 @@ Resources:
           Properties:
             Path: /case/close
             Method: PUT
+        CreateReport:
+          Type: Api
+          Properties:
+            Path: /report
+            Method: POST
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole

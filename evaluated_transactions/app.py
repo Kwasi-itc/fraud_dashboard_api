@@ -201,6 +201,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
         application_id = original_transaction['application_id']
         merchant_id = original_transaction['merchant_id']
         product_id = original_transaction['product_id']
+        assigned_person = assigned_status(original_transaction['transaction_id'])
 
         
         
@@ -216,6 +217,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
+            'assigned_to': assigned_person,
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
@@ -256,7 +258,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         application_id = original_transaction['application_id']
         merchant_id = original_transaction['merchant_id']
         product_id = original_transaction['product_id']
-
+        assigned_person = assigned_status(original_transaction['transaction_id'])
         
         
         processed_item = {
@@ -271,6 +273,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'evaluation': evaluation,
+            'assigned_to': assigned_person,
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
@@ -300,7 +303,17 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
 
     return processed_items
             
-
+def assigned_status(transaction_id):
+    response = table.query(
+        KeyConditionExpression=Key('PARTITION_KEY').eq("CASE") & Key('SORT_KEY').eq(transaction_id)
+    )
+    
+    items = response['Items']
+    print("The case items are ", items)
+    if len(items) == 0:
+        return ""
+    else:
+        return items[0]["assigned_to"]["email"]
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):
     relevant_aggregates = {}

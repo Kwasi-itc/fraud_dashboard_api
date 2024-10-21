@@ -27,6 +27,8 @@ def lambda_handler(event, context):
         return get_closed_cases(event, context)
     elif http_method == 'PUT' and resource == '/case/close':
         return close_case(event, context)
+    elif http_method == 'POST' and resource == '/report':
+        return create_report(event, context)
     else:
         return response(400, {'message': 'Invalid endpoint'})
 
