@@ -40,6 +40,9 @@ def lambda_handler(event, context):
 
 def handle_specific_query(event):
     params = event['queryStringParameters'] or {}
+    print("The params are ", params)
+    if params == {}:
+        return response(200, query_items_in_all_lists_sorted_by_date())
     list_type = params.get('list_type')
     channel = params.get('channel')
     entity_type = params.get('entity_type')
@@ -125,15 +128,44 @@ def query_specific(list_type, channel, entity_type, entity_id):
         return [response.get('Item')] if 'Item' in response else []
     else:
         response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
-        return response.get('Items', [])
+        return transform_items(response.get('Items', []))
+
+def query_items_in_all_lists_sorted_by_date():
+    """
+    Query all items from BLACKLIST, WATCHLIST, and STAFFLIST,
+    transform them, and sort by created_at in descending order.
+    
+    Returns:
+        list: Sorted list of transformed items
+    """
+    all_items = []
+    list_types = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
+    
+    # Fetch items for each list type
+    for list_type in list_types:
+        response = table.scan(
+            FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').begins_with(f"{list_type}-")
+        )
+        items = response.get('Items', [])
+        all_items.extend(items)
+    
+    # Sort items by created_at in descending order
+    sorted_items = sorted(
+        all_items,
+        key=lambda x: datetime.strptime(x['created_at'], "%Y-%m-%d %H:%M:%S.%f"),
+        reverse=True
+    )
+    
+    # Transform items (rename SORT_KEY to entity_id and remove PARTITION_KEY)
+    return transform_items(sorted_items)
 
 def query_by_list_type(list_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').begins_with(f"{list_type}-"))
-    return response.get('Items', [])
+    return transform_items(response.get('Items', []))
 
 def query_by_channel(channel):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{channel}-"))
-    return response.get('Items', [])
+    return transform_items(response.get('Items', []))
 
 def query_by_entity_type(entity_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{entity_type}"))
@@ -154,7 +186,7 @@ def query_by_entity_type(entity_type):
             current_item["product_id"] = item["SORT_KEY"].split("__")[2]
         items_to_send.append(current_item)
         
-    return items_to_send
+    return transform_items(items_to_send)
 
 def query_by_list_and_entity_type(list_type, entity_type):
     possible_items = query_by_list_type(list_type)
@@ -178,7 +210,8 @@ def query_by_list_and_entity_type(list_type, entity_type):
             current_item["product_id"] = item["SORT_KEY"].split("__")[2]
         items_to_send.append(current_item)
         
-    return items_to_send
+    return transform_items(items_to_send)
+
 
 
 
@@ -188,7 +221,33 @@ def query_by_date_range(start_date, end_date):
     response = table.scan(
         FilterExpression=boto3.dynamodb.conditions.Attr('created_at').between(start.isoformat(), end.isoformat())
     )
-    return response.get('Items', [])
+    return transform_items(response.get('Items', []))
+
+
+def transform_items(items):
+    """
+    Transform a list of DynamoDB items by renaming SORT_KEY to entity_id.
+    
+    Args:
+        items (list): List of dictionaries containing DynamoDB items
+        
+    Returns:
+        list: New list of transformed items
+    """
+    transformed_items = []
+    
+    for item in items:
+        # Create a new dictionary for the transformed item
+        transformed_item = item.copy()
+        
+        # Get the SORT_KEY value and remove the original key
+        if 'SORT_KEY' in transformed_item:
+            transformed_item['entity_id'] = transformed_item.pop('SORT_KEY')
+            
+        transformed_items.append(transformed_item)
+        
+    return transformed_items
+
 
 def response(status_code, body):
     response_message = "Operation Successful" if status_code == 200 else "Unsuccessful operation"

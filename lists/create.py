@@ -61,18 +61,19 @@ def lambda_handler(event, context):
             sort_key = application_id + "__" + merchant_id + "__" + product_id
         else:
             return response(500, "entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT")
-
+        
+        created_at = str(datetime.now())
         response_db = table.put_item(
             Item={
                 'PARTITION_KEY': partition_key,
                 'SORT_KEY': sort_key,
-                'created_at': str(datetime.now())
+                'created_at': created_at
             }
         )
 
         print("The response after putting item on DB is ", response_db)
 
-        return response(200, {'message': 'Item created successfully'})
+        return response(200, {'PARTITION_KEY': partition_key, "entity_id": sort_key, "created_at": created_at})
 
     except ClientError as e:
         print("An error occurred ", e)
