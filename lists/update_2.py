@@ -72,23 +72,29 @@ def lambda_handler(event, context):
         
         # Generate current and new sort keys
         try:
+            # Handle both account_id and account_ref in the input
+            account_id = current_ids.get("account_id") or current_ids.get("account_ref")
             current_sort_key = get_sort_key(
                 entity_type,
-                current_ids.get("account_id"),
-                current_ids.get("application_id"),
+                account_id,
+                current_ids.get("application_id") or current_ids.get("processor"),
                 current_ids.get("merchant_id"),
                 current_ids.get("product_id")
             )
             
+            new_account_id = new_ids.get("account_id") or new_ids.get("account_ref")
             new_sort_key = get_sort_key(
                 entity_type,
-                new_ids.get("account_id"),
-                new_ids.get("application_id"),
+                new_account_id,
+                new_ids.get("application_id") or new_ids.get("processor"),
                 new_ids.get("merchant_id"),
                 new_ids.get("product_id")
             )
         except ValueError as e:
             return response(400, str(e))
+
+        print(f"Current sort key: {current_sort_key}")
+        print(f"New sort key: {new_sort_key}")
 
         # First, get the existing item
         try:
@@ -109,13 +115,16 @@ def lambda_handler(event, context):
         new_item = {
             'PARTITION_KEY': partition_key,
             'SORT_KEY': new_sort_key,
+            'entity_id': new_sort_key,  # Make sure to update entity_id as well
             'created_at': str(datetime.now())
         }
         
-        # Copy all attributes except PARTITION_KEY, SORT_KEY, and updated_at
+        # Copy all attributes except those we're explicitly setting
         for key, value in existing_item.items():
-            if key not in ['PARTITION_KEY', 'SORT_KEY', 'updated_at']:
+            if key not in ['PARTITION_KEY', 'SORT_KEY', 'entity_id', 'created_at']:
                 new_item[key] = value
+
+        print(f"New item to create: {new_item}")
 
         # Use a transaction to ensure atomicity
         try:
@@ -124,16 +133,15 @@ def lambda_handler(event, context):
                     'Delete': {
                         'TableName': table_name,
                         'Key': {
-                            'PARTITION_KEY': {'S': partition_key},
-                            'SORT_KEY': {'S': current_sort_key}
+                            'PARTITION_KEY': partition_key,
+                            'SORT_KEY': current_sort_key
                         }
                     }
                 },
                 {
                     'Put': {
                         'TableName': table_name,
-                        'Item': {k: {'S' if isinstance(v, str) else {'N': str(v)}} 
-                                for k, v in new_item.items()}
+                        'Item': new_item
                     }
                 }
             ]
@@ -143,6 +151,9 @@ def lambda_handler(event, context):
             
         except ClientError as e:
             print(f"Transaction error: {e}")
+            if "TransactionCanceledException" in str(e):
+                cancellation_reasons = e.response.get('CancellationReasons', [])
+                print(f"Cancellation reasons: {cancellation_reasons}")
             return response(500, {'message': f"Error updating item: {str(e)}"})
             
     except ClientError as e:
