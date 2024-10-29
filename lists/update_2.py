@@ -74,16 +74,16 @@ def lambda_handler(event, context):
         try:
             current_sort_key = get_sort_key(
                 entity_type,
-                current_ids.get("account_ref"),
-                current_ids.get("processor"),
+                current_ids.get("account_id"),
+                current_ids.get("application_id"),
                 current_ids.get("merchant_id"),
                 current_ids.get("product_id")
             )
             
             new_sort_key = get_sort_key(
                 entity_type,
-                new_ids.get("account_ref"),
-                new_ids.get("processor"),
+                new_ids.get("account_id"),
+                new_ids.get("application_id"),
                 new_ids.get("merchant_id"),
                 new_ids.get("product_id")
             )
@@ -109,7 +109,7 @@ def lambda_handler(event, context):
         new_item = {
             'PARTITION_KEY': partition_key,
             'SORT_KEY': new_sort_key,
-            'updated_at': str(datetime.now())
+            'created_at': str(datetime.now())
         }
         
         # Copy all attributes except PARTITION_KEY, SORT_KEY, and updated_at
