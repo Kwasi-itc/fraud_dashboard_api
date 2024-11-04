@@ -57,9 +57,15 @@ def handle_specific_query(event):
     elif entity_type == "APPLICATION":
         entity_id = application_id
     elif entity_type == "MERCHANT":
-        entity_id = application_id + "__" + merchant_id
+        if application_id is not None and merchant_id is not None:
+            entity_id = application_id + "__" + merchant_id
+        else:
+            entity_id = None
     elif entity_type == "PRODUCT":
-        entity_id = application_id + "__" + merchant_id + "__" + product_id
+        if application_id is not None and merchant_id is not None and product_id is not None:
+            entity_id = application_id + "__" + merchant_id + "__" + product_id
+        else:
+            entity_id = None
     else:
         return response(400, {"error": "Entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"})
 
