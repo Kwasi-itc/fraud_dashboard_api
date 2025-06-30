@@ -76,8 +76,10 @@ AWS_SAM_STACK_NAME=<stack> python -m pytest tests/integration -v
 
 ## License  
 Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+
+| Domain | Purpose | Lambda folder |
 |--------|---------|---------------|
-| **Limits** | CRUD per-account / application / merchant / product spending limits (amount & count) | `limits/` |
+| **Limits** | CRUD spend / velocity limits (amount & count) per account / application / merchant / product | `limits/` |
 | **Lists** | CRUD Blacklist, Watchlist & Stafflist entities for fast look-ups | `lists/` |
 | **Evaluated Transactions** | Query fraud-scored transactions with on-the-fly aggregate enrichment | `evaluated_transactions/` |
 | **Transaction Summary** | Lightweight reporting over processed transactions | `transactions_summary/` |
@@ -88,29 +90,6 @@ All data lives in three DynamoDB tables, names provided at deploy time:
 * `FRAUD_LISTS_TABLE`
 * `FRAUD_PROCESSED_TRANSACTIONS_TABLE`
 
----
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    A[API Gateway] -->|REST Endpoints| B(Lambda Functions)
-    B --> C{DynamoDB Tables}
-```
-
-* **template.yaml** (AWS SAM) wires API paths → Lambda handlers and grants least-privilege IAM permissions.  
-* Each Lambda reads table names from environment variables and uses **boto3** for DB calls.  
-* Responses are normalised by shared helpers so every HTTP reply looks like:
-
-```json
-{
-  "responseCode": 200,
-  "responseMessage": "Operation Successful",
-  "data": { ... }
-}
-```
-
----
 
 ## 🚀 Deploy
 
