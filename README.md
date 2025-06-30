@@ -1,6 +1,142 @@
-# water_level_project
+# FraudPy – Serverless Fraud-Monitoring Platform
 
-This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
+FraudPy is a fully-serverless backend that helps you monitor transactions for fraud, enforce configurable spend/velocity **limits**, maintain **blacklists / watchlists**, and manage analyst **cases & reports** – all exposed through a REST API powered by AWS Lambda, API Gateway and DynamoDB.
+
+> **Why “FraudPy”?**  
+> Everything is written in Python 3.8 and deployed with AWS SAM.
+
+---
+
+## 💡 Key Features
+| Domain | Purpose | Lambda folder |
+|--------|---------|---------------|
+| **Limits** | CRUD per-account / application / merchant / product spending limits (amount & count) | `limits/` |
+| **Lists** | CRUD Blacklist, Watchlist & Stafflist entities for fast look-ups | `lists/` |
+| **Evaluated Transactions** | Query fraud-scored transactions with on-the-fly aggregate enrichment | `evaluated_transactions/` |
+| **Transaction Summary** | Lightweight reporting over processed transactions | `transactions_summary/` |
+| **Case Management** | Open, update, close and report on analyst investigation cases | `case_management/` |
+
+All data lives in three DynamoDB tables, names provided at deploy time:
+* `FRAUD_LIMITS_TABLE`
+* `FRAUD_LISTS_TABLE`
+* `FRAUD_PROCESSED_TRANSACTIONS_TABLE`
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[API Gateway] -->|REST Endpoints| B(Lambda Functions)
+    B --> C{DynamoDB Tables}
+```
+
+* **template.yaml** (AWS SAM) wires API paths → Lambda handlers and grants least-privilege IAM permissions.  
+* Each Lambda reads table names from environment variables and uses **boto3** for DB calls.  
+* Responses are normalised by shared helpers so every HTTP reply looks like:
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": { ... }
+}
+```
+
+---
+
+## 🚀 Deploy
+
+Prerequisites: AWS CLI authenticated, SAM CLI, Python 3.8.
+
+```bash
+sam build --use-container
+sam deploy --guided
+```
+
+SAM will ask for a unique **Stack Name** and region then create:
+
+* API Gateway (Prod stage)  
+* Lambda functions for every domain above  
+* DynamoDB tables & IAM roles  
+
+Copy the **ApiURL** output – that’s your base URL.
+
+---
+
+## 🔌 REST API Overview
+
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| ANY | `/limits/account` | `limits/lambda_handler.py` | Account-level limits |
+| ANY | `/limits/account-application` | *same* | Account + Application limits |
+| ANY | `/limits/account-application-merchant` | *same* | Account + Application + Merchant limits |
+| ANY | `/limits/account-application-merchant-product` | *same* | Deepest granularity limits |
+| POST | `/lists` | `lists/create.py` | Add entity to list |
+| GET | `/lists` | `lists/read.py` | Query list(s) |
+| PUT | `/lists` | `lists/update_2.py` | Update list entry |
+| DELETE | `/lists` | `lists/delete.py` | Remove list entry |
+| GET | `/evaluated-transactions` | `evaluated_transactions/app.py` | Query processed transactions |
+| GET | `/transaction-summary` | `transactions_summary/app.py` | Aggregate stats |
+| POST | `/case` | `case_management/app.py` | Open analyst case |
+| PUT | `/case/status` | *same* | Update case status |
+| GET | `/case` | *same* | Fetch single case |
+| GET | `/cases/open` | *same* | List open cases |
+| GET | `/cases/closed` | *same* | List closed cases |
+| PUT | `/case/close` | *same* | Close case |
+| POST | `/report` | *same* | File analyst report |
+
+---
+
+## 🧑‍💻 Local Development
+
+```bash
+sam local start-api
+curl http://localhost:3000/limits/account?channel=MOBILE
+```
+
+SAM CLI emulates API Gateway & Lambda inside Docker, giving near-AWS parity.
+
+---
+
+## ✅ Testing
+
+```bash
+pip install -r tests/requirements.txt --user
+python -m pytest tests/unit -v
+# Integration tests (stack must be deployed)
+AWS_SAM_STACK_NAME=<stack> python -m pytest tests/integration -v
+```
+
+---
+
+## 🗂️ Repository Layout
+```
+limits/                    # Limit CRUD Lambdas + utils
+lists/                     # List CRUD Lambdas
+evaluated_transactions/    # Transaction query Lambda
+transactions_summary/      # Summary Lambda
+case_management/           # Case management Lambda
+tests/                     # Unit & integration tests
+template.yaml              # AWS SAM template
+requirements.txt           # Shared libs for local dev
+```
+
+---
+
+## 📝 Contributing
+
+1. Fork & clone the repo.  
+2. Create a feature branch: `git checkout -b feature/<name>`.  
+3. Run tests and `sam build` locally.  
+4. Submit a PR and ensure CI passes.
+
+All code should be **black**-formatted and pytest-clean before merge.
+
+---
+
+## 📄 License
+MIT – see `LICENSE` file for details.
 
 - hello_world - Code for the application's Lambda function.
 - events - Invocation events that you can use to invoke the function.
