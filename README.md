@@ -1,13 +1,81 @@
-# FraudPy – Serverless Fraud-Monitoring Platform
+# FraudPy – Serverless Fraud-Monitoring Platform  
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-FraudPy is a fully-serverless backend that helps you monitor transactions for fraud, enforce configurable spend/velocity **limits**, maintain **blacklists / watchlists**, and manage analyst **cases & reports** – all exposed through a REST API powered by AWS Lambda, API Gateway and DynamoDB.
+## Description  
+FraudPy is a **serverless**, modular backend that exposes a REST API for realtime fraud monitoring.  
+It lets you set dynamic spend / velocity **limits**, manage **blacklists & watchlists**, review **scored transactions**, and run an analyst **case-management** workflow – all powered by AWS Lambda, API Gateway and DynamoDB.
 
-> **Why “FraudPy”?**  
-> Everything is written in Python 3.8 and deployed with AWS SAM.
+## Table of Contents  
+- [Description](#description)  
+- [Features](#features)  
+- [Architecture](#architecture)  
+- [Installation](#installation)  
+- [Usage](#usage)  
+- [Testing](#testing)  
+- [Contributing](#contributing)  
+- [License](#license)
 
----
+## Features  
+- CRUD **spend / velocity limits** across account, application, merchant and product scopes.  
+- Manage **Blacklist, Watchlist & Stafflist** entities for instant look-ups.  
+- Query **evaluated transactions** with live aggregate enrichment.  
+- Retrieve **transaction summaries** for dashboards and audits.  
+- Full **case-management** lifecycle: open, update, close, report.
 
-## 💡 Key Features
+## Architecture  
+```mermaid
+graph TD
+    API[API Gateway] --> L[AWS Lambda Functions]
+    L --> D[(DynamoDB<br/>Limits · Lists · ProcessedTx)]
+```
+
+## Installation  
+Prerequisites  
+- Python 3.8+  
+- AWS CLI (configured)  
+- AWS SAM CLI  
+- Docker (for local builds)
+
+```bash
+git clone https://github.com/your-org/fraudpy.git
+cd fraudpy
+pip install -r requirements.txt --user
+sam build --use-container
+sam deploy --guided
+```
+Copy the **ApiURL** output – that’s the base URL for all endpoints.
+
+## Usage  
+```bash
+# List open cases
+curl "$ApiURL/cases/open"
+
+# Add entity to blacklist
+curl -X POST "$ApiURL/lists" \
+  -H "Content-Type: application/json" \
+  -d '{"listType":"BLACKLIST","channel":"WEB","entityType":"ACCOUNT","entityId":"12345"}'
+```
+Local testing:  
+```bash
+sam local start-api
+curl http://localhost:3000/lists
+```
+
+## Testing  
+```bash
+pip install -r tests/requirements.txt --user
+python -m pytest tests/unit -v
+AWS_SAM_STACK_NAME=<stack> python -m pytest tests/integration -v
+```
+
+## Contributing  
+1. Fork & clone the repo.  
+2. `git checkout -b feature/<name>`  
+3. Run **black**, ensure all tests pass.  
+4. Open a Pull Request – CI must be green before merge.
+
+## License  
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 | Domain | Purpose | Lambda folder |
 |--------|---------|---------------|
 | **Limits** | CRUD per-account / application / merchant / product spending limits (amount & count) | `limits/` |
