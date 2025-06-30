@@ -75,8 +75,7 @@ AWS_SAM_STACK_NAME=<stack> python -m pytest tests/integration -v
 4. Open a Pull Request – CI must be green before merge.
 
 ## License  
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
-| Domain | Purpose | Lambda folder |
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 |--------|---------|---------------|
 | **Limits** | CRUD per-account / application / merchant / product spending limits (amount & count) | `limits/` |
 | **Lists** | CRUD Blacklist, Watchlist & Stafflist entities for fast look-ups | `lists/` |
