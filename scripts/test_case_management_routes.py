@@ -10,6 +10,7 @@ pytest style ‑ run with:
     python -m pytest tests/unit -v
 """
 import os
+import json
 from unittest.mock import patch, MagicMock
 
 import pytest
