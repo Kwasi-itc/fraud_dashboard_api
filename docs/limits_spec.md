@@ -5,10 +5,12 @@ The **Limits** service lives in the `limits/` directory and is deployed as the
 It provides CRUD operations for fraud-detection spending/count thresholds at
 four different hierarchy levels:
 
-1. **Account** (`/limits/account`)  
-2. **Account + Application** (`/limits/account-application`)  
-3. **Account + Application + Merchant** (`/limits/account-application-merchant`)  
-4. **Account + Application + Merchant + Product** (`/limits/account-application-merchant-product`)  
+| Hierarchy level | Path | What it governs |
+|-----------------|------|-----------------|
+| **Account** | `/limits/account` | Thresholds that apply to *all* transactions belonging to a single **account**—irrespective of application, merchant or product. |
+| **Account + Application** | `/limits/account-application` | Limits scoped to one **account** *within* a particular **application** (e.g. mobile-app vs internet-banking). |
+| **Account + Application + Merchant** | `/limits/account-application-merchant` | Adds a 3rd dimension, constraining spend/count for a merchant under the specified account+application pair. |
+| **Account + Application + Merchant + Product** | `/limits/account-application-merchant-product` | The most specific tier—locks limits down to an individual **product/SKU** sold by a merchant for an account+application. |
 
 The same Lambda handles **POST** (create), **GET** (read), **PUT** (update) and
 **DELETE** (delete) by routing inside `limits/lambda_handler.py`.

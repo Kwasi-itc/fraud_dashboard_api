@@ -23,15 +23,15 @@ It is responsible for creating, updating, querying and closing *fraud-investigat
 
 ## 2. API Endpoints
 
-| Method | Path                 | Lambda Action              | Description |
-|--------|----------------------|----------------------------|-------------|
-| POST   | `/case`              | `create_case`              | Create a new case for a given `transaction_id`. |
-| PUT    | `/case/status`       | `update_case_status`       | Update `status` and/or `assigned_to` of an existing case. |
-| GET    | `/case`              | `get_case`                 | Retrieve a single case by `transaction_id`. |
-| GET    | `/cases/open`        | `get_open_cases`           | List all open cases (`PARTITION_KEY = 'CASE'`). |
-| GET    | `/cases/closed`      | `get_closed_cases`         | List all closed cases (`PARTITION_KEY = 'CLOSED_CASE'`). |
-| PUT    | `/case/close`        | `close_case`               | Atomically move a case from *open* to *closed*. |
-| POST   | `/report`            | `create_report`            | Attach an ad-hoc report to a case (`SORT_KEY = "{transaction_id}#{uuid}"`). |
+| Method | Path                     | Lambda Action      | Detailed description |
+|--------|--------------------------|--------------------|----------------------|
+| **POST** | `/case`                | `create_case`      | Register a *brand-new* investigation record in the **open-case** partition. The handler rejects duplicate `transaction_id`s and stamps `created_at`, optional `assigned_to`, and optional initial `status` (`OPEN` by default). |
+| **PUT**  | `/case/status`         | `update_case_status` | Mutate the investigator assignment and/or lifecycle `status`. The handler enforces allowed transitions (`OPEN → IN_PROGRESS → CLOSED`) and writes an `updated_at` timestamp on success. |
+| **GET**  | `/case`                | `get_case`         | Fetch a *single* case (open **or** closed) by `transaction_id`. 404 is returned when the ID is absent in both partitions. |
+| **GET**  | `/cases/open`          | `get_open_cases`   | Paginated listing of every case whose `PARTITION_KEY` =`CASE`. Supports `limit` and `last_evaluated_key` for forward paging. |
+| **GET**  | `/cases/closed`        | `get_closed_cases` | Same pagination interface as above but scans the `CLOSED_CASE` partition. |
+| **PUT**  | `/case/close`          | `close_case`       | Atomically *moves* a case from the open partition to `CLOSED_CASE`, keeps original metadata, and appends a `closed_at` timestamp. Idempotent—calling twice returns **404** on the second call. |
+| **POST** | `/report`              | `create_report`    | Adds a child item under the same partition with composite sort-key `transaction_id#<uuid>`. Reports carry no business attributes beyond timestamps; they act as immutable audit attachments. |
 
 All responses follow the wrapper produced by `response()` in `case_management/app.py`:
 
