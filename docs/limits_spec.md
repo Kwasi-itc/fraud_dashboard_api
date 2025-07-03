@@ -71,6 +71,18 @@ Content-Type: application/json
   "WEEKLY_COUNT": 2000,
   "MONTHLY_COUNT": 8000
 }
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Limit created successfully"
+  }
+}
+```
 ```
 
 ---
@@ -82,6 +94,23 @@ GET /limits/account?channel=MOBILE&account_id=ACCT001
 ```
 
 Returns the limit item or **404** if none exists.
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "channel": "MOBILE",
+    "account_id": "ACCT001",
+    "AMOUNT": 2000,
+    "DAILY_SUM": 30000,
+    "DAILY_COUNT": 500,
+    "period": "DAY"
+  }
+}
+```
 
 ---
 
@@ -104,12 +133,36 @@ Content-Type: application/json
 }
 ```
 
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Limit updated successfully"
+  }
+}
+```
+
 ---
 
 ### 2.4 DELETE `/limits/account` – *Delete account limit*
 
 ```http
 DELETE /limits/account?channel=MOBILE&account_id=ACCT001
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Limit deleted successfully"
+  }
+}
 ```
 
 ---
