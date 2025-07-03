@@ -33,17 +33,17 @@ All queries rely on the PK/SK pattern; no GSIs/LSIs are defined.
 
 ## 2. Endpoint Matrix
 
-| Method | Path                                   | Description |
-|--------|----------------------------------------|-------------|
-| **POST**   | `/lists`                               | Add a new entry to BLACKLIST/WATCHLIST/STAFFLIST. Rejects duplicates via conditional write. |
-| **GET**    | `/lists`                               | Retrieve **one** entry when all identifying parameters are provided. |
-| **GET**    | `/lists/by-list-type`                  | All entries of a given `list_type`. |
-| **GET**    | `/lists/by-channel`                    | All entries for a specific `channel`. |
-| **GET**    | `/lists/by-entity-type`                | All entries for an `entity_type` (ACCOUNT/APPLICATION/MERCHANT/PRODUCT). |
-| **GET**    | `/lists/by-date-range`                 | Items whose `created_at` falls within `start_date` – `end_date`. |
-| **GET**    | `/lists/by-list-type-and-entity-type`  | Intersection filter combining `list_type` **and** `entity_type`. |
-| **PUT**    | `/lists`                               | Update mutable fields (`notes`, future metadata) of an entry. |
-| **DELETE** | `/lists`                               | Permanently delete an entry. |
+| Method | Path                                   | Detailed description |
+|--------|----------------------------------------|----------------------|
+| **POST**   | `/lists`                               | Create a new item in **BLACKLIST / WATCHLIST / STAFFLIST**. Performs a DynamoDB <br>`ConditionExpression attribute_not_exists` to reject duplicates, stamps `created_at`, and builds PK/SK following the schema rules. |
+| **GET**    | `/lists`                               | Fetch **one** list entry when *all* identifiers are supplied (`list_type`, `channel`, `entity_type`, plus the entity-id fields). Returns **404** if the record is missing. |
+| **GET**    | `/lists/by-list-type`                  | Return **every** item that belongs to the provided `list_type` across all channels and entity types. Useful for bulk export of BLACKLIST, etc. |
+| **GET**    | `/lists/by-channel`                    | Filter by `channel` (MOBILE / WEB / POS …). Scans all list types and entity types for that channel. |
+| **GET**    | `/lists/by-entity-type`                | Filter by high-level `entity_type` (ACCOUNT / APPLICATION / MERCHANT / PRODUCT) irrespective of channel or list_type. |
+| **GET**    | `/lists/by-date-range`                 | Time-based audit query. Accepts `start_date` and `end_date` (YYYY-MM-DD). Returns items whose `created_at` falls inside the interval. |
+| **GET**    | `/lists/by-list-type-and-entity-type`  | Intersection filter: fetch only entries where **both** `list_type` *and* `entity_type` match the query parameters. |
+| **PUT**    | `/lists`                               | Update mutable metadata (currently only `notes`, future fields TBD). Uses `UpdateExpression` & sets `updated_at`. |
+| **DELETE** | `/lists`                               | Permanently remove an entry. Idempotent: returns success even when the item did not exist. |
 
 All handlers wrap their payloads with the common schema:
 
