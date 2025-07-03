@@ -33,17 +33,17 @@ All queries rely on the PK/SK pattern; no GSIs/LSIs are defined.
 
 ## 2. Endpoint Matrix
 
-| Method | Path                                   | Detailed description |
-|--------|----------------------------------------|----------------------|
-| **POST**   | `/lists`                               | Create a new item in **BLACKLIST / WATCHLIST / STAFFLIST**. Performs a DynamoDB <br>`ConditionExpression attribute_not_exists` to reject duplicates, stamps `created_at`, and builds PK/SK following the schema rules. |
-| **GET**    | `/lists`                               | Fetch **one** list entry when *all* identifiers are supplied (`list_type`, `channel`, `entity_type`, plus the entity-id fields). Returns **404** if the record is missing. |
-| **GET**    | `/lists/by-list-type`                  | Return **every** item that belongs to the provided `list_type` across all channels and entity types. Useful for bulk export of BLACKLIST, etc. |
-| **GET**    | `/lists/by-channel`                    | Filter by `channel` (MOBILE / WEB / POS …). Scans all list types and entity types for that channel. |
-| **GET**    | `/lists/by-entity-type`                | Filter by high-level `entity_type` (ACCOUNT / APPLICATION / MERCHANT / PRODUCT) irrespective of channel or list_type. |
-| **GET**    | `/lists/by-date-range`                 | Time-based audit query. Accepts `start_date` and `end_date` (YYYY-MM-DD). Returns items whose `created_at` falls inside the interval. |
-| **GET**    | `/lists/by-list-type-and-entity-type`  | Intersection filter: fetch only entries where **both** `list_type` *and* `entity_type` match the query parameters. |
-| **PUT**    | `/lists`                               | Update mutable metadata (currently only `notes`, future fields TBD). Uses `UpdateExpression` & sets `updated_at`. |
-| **DELETE** | `/lists`                               | Permanently remove an entry. Idempotent: returns success even when the item did not exist. |
+| Method | Path                                   | What happens inside the Lambda |
+|--------|----------------------------------------|--------------------------------|
+| **POST**   | `/lists`                               | 1. Validates `list_type` against the **`ALLOWED_LIST_TYPES`** constant.<br>2. Builds `PARTITION_KEY` as `<LIST_TYPE>-<CHANNEL>-<ENTITY_TYPE>` and a composite `SORT_KEY` from the entity identifiers – logic mirrors the code in `lists/create.py`.<br>3. Executes `PutItem` **with a conditional expression** `attribute_not_exists(PARTITION_KEY)` to avoid duplicates.<br>4. Stamps `created_at` before returning PK/SK in the response. |
+| **GET**    | `/lists`                               | Branches in `lists/read.py`:<br>&nbsp;&nbsp;• If **no query-string parameters** → calls `query_items_in_all_lists_sorted_by_date()` (*scan+sort*) to deliver a dashboard feed.<br>&nbsp;&nbsp;• If parameters supplied → performs `GetItem` (exact PK/SK) or `Query` when only PK is known, then runs `transform_items()` to replace `SORT_KEY` with `entity_id`. |
+| **GET**    | `/lists/by-list-type`                  | Uses a **`Scan`** with `begins_with(PARTITION_KEY, "<LIST_TYPE>-")` to collect everything inside one list. Results transformed the same way as above. |
+| **GET**    | `/lists/by-channel`                    | Similar scan but with `contains(PARTITION_KEY, "-<CHANNEL>-")` so it catches all entity types and list types for that channel. |
+| **GET**    | `/lists/by-entity-type`                | Scans with `contains(PARTITION_KEY, "-<ENTITY_TYPE>")`, then post-processes each record to explode the `SORT_KEY` into `application_id`, `merchant_id`, `product_id` as shown in `query_by_entity_type()`. |
+| **GET**    | `/lists/by-date-range`                 | Scans **all items** and filters on `created_at BETWEEN :start AND :end` (ISO dates). Handy for audits. |
+| **GET**    | `/lists/by-list-type-and-entity-type`  | Two-phase call: first reuse *by-list-type* scan, then in Python filter by `entity_type`. Returns transformed items. |
+| **PUT**    | `/lists`                               | Builds keys exactly like POST, runs `UpdateItem` with `set updated_at = :now, notes = :notes` (only fields currently allowed). Fails with **404** if the item is absent. |
+| **DELETE** | `/lists`                               | Runs `DeleteItem` on the calculated PK/SK. No conditional check → operation is **idempotent**; success even when item never existed. |
 
 All handlers wrap their payloads with the common schema:
 
