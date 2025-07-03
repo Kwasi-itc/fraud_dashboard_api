@@ -103,7 +103,87 @@ The Lambda performs:
 
 Atomicity is guaranteed at the **application level**, not via DynamoDB transactions.
 
-### 2.5 Pagination
+### 2.5 GET /cases/open
+
+```http
+GET /cases/open?limit=25
+```
+
+Success ⇒ `200 OK`
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "open_cases": [
+      {
+        "transaction_id": "TXN123456",
+        "status": "OPEN",
+        "assigned_to": "fraud.analyst@example.com",
+        "created_at": "2025-07-03T10:15:00.123456"
+      }
+    ],
+    "last_evaluated_key": {
+      "PARTITION_KEY": "CASE",
+      "SORT_KEY": "TXN123456"
+    }
+  }
+}
+```
+
+### 2.6 GET /cases/closed
+
+```http
+GET /cases/closed
+```
+
+Success ⇒ `200 OK`
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "closed_cases": [
+      {
+        "PARTITION_KEY": "CLOSED_CASE",
+        "SORT_KEY": "TXN123456",
+        "status": "CLOSED",
+        "created_at": "2025-06-16T09:12:00.000000",
+        "closed_at": "2025-06-17T08:05:00.000000"
+      }
+    ],
+    "last_evaluated_key": null
+  }
+}
+```
+
+### 2.7 POST /report
+
+```http
+POST /report
+Content-Type: application/json
+
+{
+  "transaction_id": "TXN123456"
+}
+```
+
+Success ⇒ `200 OK`
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Report created successfully",
+    "report_id": "TXN123456#550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+### 2.8 Pagination
 
 Both `/cases/open` and `/cases/closed` support **cursor-based pagination** using
 standard DynamoDB patterns:
