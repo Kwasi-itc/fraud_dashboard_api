@@ -43,7 +43,272 @@ All responses follow the wrapper produced by `response()` in `case_management/ap
 }
 ```
 
-### 2.1. POST /case
+### 2.1 POST / case – *Create case*
+
+**Key points**
+
+- Creates a new *open* case (PK =`CASE`) for the supplied `transaction_id`.
+- Optional fields:  
+  - `status` *(defaults to `OPEN`)*  
+  - `assigned_to` *(username / email of investigator)*
+- Rejects if the case already exists.
+
+**Request**
+
+```http
+POST /case
+Content-Type: application/json
+```
+
+```json
+{
+  "transaction_id": "TXN123456",
+  "assigned_to": "fraud.analyst@example.com",
+  "status": "OPEN"
+}
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Case created successfully",
+    "case_id": "TXN123456"
+  }
+}
+```
+
+---
+
+### 2.2 PUT / case/status – *Update status / assignee*
+
+**Key points**
+
+- Validates status transitions (`OPEN → IN_PROGRESS`, `OPEN/IN_PROGRESS → CLOSED`).
+- Updates `updated_at` timestamp on every mutation.
+- Returns **400** for invalid transition or unknown status.
+
+**Request**
+
+```http
+PUT /case/status
+Content-Type: application/json
+```
+
+```json
+{
+  "transaction_id": "TXN123456",
+  "assigned_to": "fraud.lead@example.com",
+  "status": "IN_PROGRESS"
+}
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Case status updated successfully"
+  }
+}
+```
+
+---
+
+### 2.3 GET / case – *Retrieve single case*
+
+**Key points**
+
+- Query-string parameter `transaction_id` **required**.
+- Searches the open-case partition first, fallback to closed.
+
+**Request**
+
+```http
+GET /case?transaction_id=TXN123456
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "transaction_id": "TXN123456",
+    "status": "IN_PROGRESS",
+    "assigned_to": "fraud.lead@example.com",
+    "created_at": "2025-07-03T10:15:00.123456",
+    "updated_at": "2025-07-03T11:00:00.000000"
+  }
+}
+```
+
+---
+
+### 2.4 PUT / case/close – *Close case*
+
+**Key points**
+
+- Atomically moves item from `CASE` to `CLOSED_CASE` partition.
+- Sets `closed_at` timestamp.
+- Idempotent: returns **404** when the case is not open.
+
+**Request**
+
+```http
+PUT /case/close
+Content-Type: application/json
+```
+
+```json
+{
+  "transaction_id": "TXN123456"
+}
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Case closed successfully"
+  }
+}
+```
+
+---
+
+### 2.5 GET / cases/open – *List open cases*
+
+**Key points**
+
+- Supports **cursor-based pagination** (`limit`, `last_evaluated_key`).
+- Default `limit` is **25**.
+
+**Request**
+
+```http
+GET /cases/open?limit=25
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "open_cases": [
+      {
+        "transaction_id": "TXN123456",
+        "status": "OPEN",
+        "assigned_to": "fraud.analyst@example.com",
+        "created_at": "2025-07-03T10:15:00.123456"
+      }
+    ],
+    "last_evaluated_key": {
+      "PARTITION_KEY": "CASE",
+      "SORT_KEY": "TXN123456"
+    }
+  }
+}
+```
+
+---
+
+### 2.6 GET / cases/closed – *List closed cases*
+
+**Key points**
+
+- Paginates exactly like `/cases/open`.
+- Items retain original `created_at` plus `closed_at`.
+
+**Request**
+
+```http
+GET /cases/closed
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "closed_cases": [
+      {
+        "PARTITION_KEY": "CLOSED_CASE",
+        "SORT_KEY": "TXN123456",
+        "status": "CLOSED",
+        "created_at": "2025-06-16T09:12:00.000000",
+        "closed_at": "2025-06-17T08:05:00.000000"
+      }
+    ],
+    "last_evaluated_key": null
+  }
+}
+```
+
+---
+
+### 2.7 POST / report – *Attach report to case*
+
+**Key points**
+
+- Creates an item with composite sort-key `transaction_id#uuid`.
+- Allows unlimited reports per case.
+
+**Request**
+
+```http
+POST /report
+Content-Type: application/json
+```
+
+```json
+{
+  "transaction_id": "TXN123456"
+}
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Report created successfully",
+    "report_id": "TXN123456#550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+---
+
+### 2.8 Pagination parameters (all list endpoints)
+
+| Query Parameter      | Type | Description                                               |
+|----------------------|------|-----------------------------------------------------------|
+| `limit`              | int  | Maximum number of items to return (default **25**).       |
+| `last_evaluated_key` | json | The `LastEvaluatedKey` value from the previous response. |
+
+Example:
+
+```http
+GET /cases/open?limit=50&last_evaluated_key={"PARTITION_KEY":"CASE","SORT_KEY":"TXN123"}
+```
+
+---
 
 ```http
 POST /case
