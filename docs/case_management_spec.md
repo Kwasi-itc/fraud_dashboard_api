@@ -103,6 +103,26 @@ The Lambda performs:
 
 Atomicity is guaranteed at the **application level**, not via DynamoDB transactions.
 
+### 2.5 Pagination
+
+Both `/cases/open` and `/cases/closed` support **cursor-based pagination** using
+standard DynamoDB patterns:
+
+| Query Parameter      | Type | Description                                               |
+|----------------------|------|-----------------------------------------------------------|
+| `limit`              | int  | Maximum number of items to return (default **25**).       |
+| `last_evaluated_key` | json | The `LastEvaluatedKey` value from the previous response. |
+
+Example:
+
+```http
+GET /cases/open?limit=50
+```
+
+```http
+GET /cases/open?limit=50&last_evaluated_key={"PARTITION_KEY":"CASE","SORT_KEY":"TXN123"}
+```
+
 ---
 
 ## 3. Error Handling
@@ -133,9 +153,7 @@ Scope can be limited to the `FRAUD_PROCESSED_TRANSACTIONS_TABLE` ARN.
 
 ## 5. Open Items / TODO
 
-* Pagination for `/cases/open` and `/cases/closed`.
-* Validation of `status` transitions (e.g., OPEN → IN_PROGRESS → CLOSED).
-* Replace **print** debugging with structured logging (AWS X-Ray / CloudWatch).
+* Migrate remaining `print` statements to structured logging (AWS X-Ray / CloudWatch).
 * Add unit tests for each handler in `tests/unit/`.
 
 ---
