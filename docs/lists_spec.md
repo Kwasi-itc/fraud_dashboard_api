@@ -137,6 +137,68 @@ Returns `200` even if the item did not exist (idempotent design).
 
 ---
 
+### 3.5  GET `/lists/by-list-type` – List entries by **list_type**
+
+```http
+GET /lists/by-list-type?list_type=BLACKLIST
+```
+
+Success ⇒ `200`
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "PARTITION_KEY": "BLACKLIST-MOBILE-ACCOUNT",
+      "entity_id": "ACCT001",
+      "created_at": "2025-07-03T10:00:00.000000"
+    },
+    { "...": "more items" }
+  ]
+}
+```
+
+---
+
+### 3.6  GET `/lists/by-channel` – List entries by **channel**
+
+```http
+GET /lists/by-channel?channel=POS
+```
+
+---
+
+### 3.7  GET `/lists/by-entity-type` – List entries by **entity_type**
+
+```http
+GET /lists/by-entity-type?entity_type=MERCHANT
+```
+
+---
+
+### 3.8  GET `/lists/by-date-range` – List entries created between two dates
+
+```http
+GET /lists/by-date-range?start_date=2025-01-01&end_date=2025-01-31
+```
+
+---
+
+### 3.9  GET `/lists/by-list-type-and-entity-type` – Combined filter
+
+```http
+GET /lists/by-list-type-and-entity-type?list_type=WATCHLIST&entity_type=ACCOUNT
+```
+
+All the helper paths above return `200` with a **list of items** (possibly empty)
+using the same wrapper shape shown in 3.5.  
+If no record matches, the `data` array is empty. Invalid/missing parameters
+produce `400 Bad Request`.
+
+---
+
 ## 4. Error Handling
 
 | HTTP | Condition |
