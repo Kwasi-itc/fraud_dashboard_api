@@ -46,14 +46,30 @@ GET /transaction-summary?start_date=2025-07-01&end_date=2025-07-31
 
 ### 1.4 Error responses
 
-| HTTP | Scenario | Example payload |
-|------|----------|-----------------|
-| **400** | Missing / invalid query parameters | ```json
-{ "responseCode": 400, "responseMessage": "Unsuccessful operation", "data": { "message": "start_date and end_date are required" } }
-``` |
-| **500** | Unexpected exception while querying / aggregating | ```json
-{ "responseCode": 500, "responseMessage": "Unsuccessful operation", "data": { "message": "Internal error. See logs" } }
-``` |
+| HTTP | Scenario |
+|------|----------|
+| **400** | Missing / invalid query parameters |
+| **500** | Unexpected exception while querying / aggregating |
+
+**400 Example**
+
+```json
+{
+  "responseCode": 400,
+  "responseMessage": "Unsuccessful operation",
+  "data": { "message": "start_date and end_date are required" }
+}
+```
+
+**500 Example**
+
+```json
+{
+  "responseCode": 500,
+  "responseMessage": "Unsuccessful operation",
+  "data": { "message": "Internal error. See logs" }
+}
+```
 
 ---
 
