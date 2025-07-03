@@ -93,12 +93,75 @@ GET /evaluated-transactions?start_date=2025-07-01&end_date=2025-07-02&query_type
 
 Returns only transactions for that account on the specified channel.
 
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "transaction_id": "TXN002",
+      "date": "2025-07-01T12:05:00",
+      "amount": 55.00,
+      "currency": "GHS",
+      "country": "GH",
+      "channel": "MOBILE",
+      "account_id": "ACCT001",
+      "application_id": "APP01",
+      "merchant_id": "MERCH3",
+      "product_id": "PROD1",
+      "assigned_to": "",
+      "evaluation": {},
+      "relevant_aggregates": {}
+    }
+  ]
+}
+```
+
 ### 3.3 GET `/evaluated-transactions` – *Affected vs Normal*
 
 | query_type | Behaviour |
 |------------|-----------|
 | `normal`   | Lambda filters `evaluation == {}` (no rule triggered). |
 | `affected` | Filters `evaluation != {}` (at least one rule triggered). |
+
+**Example – `normal`**
+
+```http
+GET /evaluated-transactions?start_date=2025-07-01&end_date=2025-07-02&query_type=normal
+```
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    { "transaction_id": "TXN003", "evaluation": {} }
+  ]
+}
+```
+
+**Example – `affected`**
+
+```http
+GET /evaluated-transactions?start_date=2025-07-01&end_date=2025-07-02&query_type=affected
+```
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "transaction_id": "TXN004",
+      "evaluation": {
+        "amount_exceeded_account": { "rule_version": "1.0" }
+      }
+    }
+  ]
+}
+```
 
 ---
 
