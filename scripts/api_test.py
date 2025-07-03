@@ -26,7 +26,8 @@ if not BASE_URL:
 
 def _pretty_print(resp: requests.Response) -> None:
     """Utility to display request / response info nicely."""
-    print(f"\n{resp.request.method} {resp.url} → {resp.status_code}")
+    # Use ASCII arrow to avoid Windows console encoding issues
+    print(f"\n{resp.request.method} {resp.url} -> {resp.status_code}")
     try:
         print(json.dumps(resp.json(), indent=2))
     except ValueError:
