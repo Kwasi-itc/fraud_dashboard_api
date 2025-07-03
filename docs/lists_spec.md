@@ -168,12 +168,47 @@ Success ⇒ `200`
 GET /lists/by-channel?channel=POS
 ```
 
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "PARTITION_KEY": "BLACKLIST-POS-ACCOUNT",
+      "entity_id": "ACCT009",
+      "created_at": "2025-07-03T10:00:00.000000"
+    },
+    { "...": "more items" }
+  ]
+}
+```
+
 ---
 
 ### 3.7  GET `/lists/by-entity-type` – List entries by **entity_type**
 
 ```http
 GET /lists/by-entity-type?entity_type=MERCHANT
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "PARTITION_KEY": "WATCHLIST-WEB-MERCHANT",
+      "entity_id": "APP1__MERCH9",
+      "application_id": "APP1",
+      "merchant_id": "MERCH9",
+      "created_at": "2025-07-02T09:31:00.000000"
+    }
+  ]
+}
 ```
 
 ---
@@ -184,12 +219,44 @@ GET /lists/by-entity-type?entity_type=MERCHANT
 GET /lists/by-date-range?start_date=2025-01-01&end_date=2025-01-31
 ```
 
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "PARTITION_KEY": "WATCHLIST-MOBILE-APPLICATION",
+      "entity_id": "APP2",
+      "created_at": "2025-01-15T12:00:00.000000"
+    }
+  ]
+}
+```
+
 ---
 
 ### 3.9  GET `/lists/by-list-type-and-entity-type` – Combined filter
 
 ```http
 GET /lists/by-list-type-and-entity-type?list_type=WATCHLIST&entity_type=ACCOUNT
+```
+
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": [
+    {
+      "PARTITION_KEY": "WATCHLIST-WEB-ACCOUNT",
+      "entity_id": "ACCT777",
+      "created_at": "2025-06-10T08:45:00.000000"
+    }
+  ]
+}
 ```
 
 All the helper paths above return `200` with a **list of items** (possibly empty)
