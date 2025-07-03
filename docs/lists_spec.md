@@ -101,7 +101,23 @@ Duplicate key ⇒ `409` (conditional-write failure).
 GET /lists?list_type=WATCHLIST&channel=WEB&entity_type=MERCHANT&application_id=APP1&merchant_id=MERCH9
 ```
 
-Success ⇒ `200` with the single item; **404** if absent.
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "PARTITION_KEY": "WATCHLIST-WEB-MERCHANT",
+    "entity_id": "APP1__MERCH9",
+    "application_id": "APP1",
+    "merchant_id": "MERCH9",
+    "created_at": "2025-07-02T09:31:00.000000"
+  }
+}
+```
+
+If the entry is missing the Lambda returns **404** with the standard wrapper.
 
 ---
 
@@ -123,7 +139,18 @@ Content-Type: application/json
 }
 ```
 
-Returns `200` and the `updated_at` value.
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Item updated successfully",
+    "updated_at": "2025-07-04T12:05:00.000000"
+  }
+}
+```
 
 ---
 
@@ -133,7 +160,19 @@ Returns `200` and the `updated_at` value.
 DELETE /lists?list_type=STAFFLIST&channel=POS&entity_type=APPLICATION&application_id=APP2
 ```
 
-Returns `200` even if the item did not exist (idempotent design).
+**Successful response – 200**
+
+```json
+{
+  "responseCode": 200,
+  "responseMessage": "Operation Successful",
+  "data": {
+    "message": "Item deleted successfully"
+  }
+}
+```
+
+The operation is idempotent—calling the same DELETE again still returns **200**.
 
 ---
 
