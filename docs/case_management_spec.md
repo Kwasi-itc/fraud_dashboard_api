@@ -137,3 +137,36 @@ Scope can be limited to the `FRAUD_PROCESSED_TRANSACTIONS_TABLE` ARN.
 * Validation of `status` transitions (e.g., OPEN → IN_PROGRESS → CLOSED).
 * Replace **print** debugging with structured logging (AWS X-Ray / CloudWatch).
 * Add unit tests for each handler in `tests/unit/`.
+
+---
+
+## 6. Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant APIGW as API Gateway
+    participant Lambda as Case-Management Lambda
+    participant Dynamo as DynamoDB
+
+    Client->>APIGW: POST /case {txn_id}
+    APIGW->>Lambda: invoke
+    Lambda->>Dynamo: PutItem (PK=CASE, SK=txn_id)
+    Dynamo-->>Lambda: 200 OK
+    Lambda-->>APIGW: 200 {"message":"Case created"}
+
+    Client->>APIGW: PUT /case/status {txn_id,status}
+    APIGW->>Lambda: invoke
+    Lambda->>Dynamo: GetItem (validate transition)
+    Lambda->>Dynamo: UpdateItem
+    Dynamo-->>Lambda: 200 OK
+    Lambda-->>APIGW: 200 {"message":"Status updated"}
+
+    Client->>APIGW: PUT /case/close {txn_id}
+    APIGW->>Lambda: invoke
+    Lambda->>Dynamo: GetItem
+    Lambda->>Dynamo: DeleteItem
+    Lambda->>Dynamo: PutItem (PK=CLOSED_CASE)
+    Dynamo-->>Lambda: 200 OK
+    Lambda-->>APIGW: 200 {"message":"Case closed"}
+```

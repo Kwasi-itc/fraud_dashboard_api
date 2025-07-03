@@ -5,10 +5,22 @@ from boto3.dynamodb.conditions import Key
 from datetime import datetime
 from decimal import Decimal
 import uuid
+import logging
 
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
+
+# -------- structured logging -------- #
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ALLOWED_STATUSES = {"OPEN", "IN_PROGRESS", "CLOSED"}
+# Next-status rules
+STATUS_TRANSITIONS = {
+    "OPEN": {"IN_PROGRESS", "CLOSED"},
+    "IN_PROGRESS": {"CLOSED"},
+}
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
@@ -82,27 +94,58 @@ def create_report(event, context):
         return response(500, {'message': str(e)})
 
 def update_case_status(event, context):
+    """
+    Validate and update the status / assignee of an existing case item.
+    Enforces allowable status transitions defined in `STATUS_TRANSITIONS`.
+    """
     try:
-        body = json.loads(event['body'])
-        print("The body is ", body)
-        transaction_id = body.get('transaction_id')
-        new_assigned_to = body.get('assigned_to')
-        new_status = body.get('status')
-        
+        body = json.loads(event["body"])
+        logger.info("update_case_status body: %s", body)
+
+        transaction_id = body.get("transaction_id")
+        new_assigned_to = body.get("assigned_to")
+        new_status = body.get("status")
+
         if not transaction_id or not new_status:
-            return response(400, {'message': 'transaction_id and status are required'})
-        
-        table.update_item(
-            Key={'PARTITION_KEY': 'CASE', 'SORT_KEY': transaction_id},
-            UpdateExpression='SET #status = :status, updated_at = :updated_at, assigned_to = :assigned_to',
-            ExpressionAttributeNames={'#status': 'status'},
-            ExpressionAttributeValues={':status': new_status, ':updated_at': datetime.now().isoformat(), ':assigned_to': new_assigned_to}
+            return response(400, {"message": "transaction_id and status are required"})
+
+        if new_status not in ALLOWED_STATUSES:
+            return response(400, {"message": f"Invalid status '{new_status}'"})
+
+        # Fetch current item to validate transition
+        result = table.get_item(
+            Key={"PARTITION_KEY": "CASE", "SORT_KEY": transaction_id}
         )
-        
-        return response(200, {'message': 'Case status updated successfully'})
+        if "Item" not in result:
+            return response(404, {"message": "Case not found"})
+
+        current_status = result["Item"].get("status", "OPEN")
+        if (
+            current_status in STATUS_TRANSITIONS
+            and new_status not in STATUS_TRANSITIONS[current_status]
+        ):
+            return response(
+                400,
+                {
+                    "message": f"Illegal transition: {current_status} -> {new_status}"
+                },
+            )
+
+        table.update_item(
+            Key={"PARTITION_KEY": "CASE", "SORT_KEY": transaction_id},
+            UpdateExpression="SET #status = :status, updated_at = :updated_at, assigned_to = :assigned_to",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":status": new_status,
+                ":updated_at": datetime.now().isoformat(),
+                ":assigned_to": new_assigned_to,
+            },
+        )
+
+        return response(200, {"message": "Case status updated successfully"})
     except Exception as e:
-        print("An error occurred ", e)
-        return response(500, {'message': str(e)})
+        logger.error("update_case_status error: %s", e, exc_info=True)
+        return response(500, {"message": str(e)})
 
 def get_case(event, context):
     try:
@@ -128,38 +171,73 @@ def get_case(event, context):
         return response(500, {'message': str(e)})
 
 def get_open_cases(event, context):
+    """
+    Return open cases with optional pagination.
+
+    Query-string params:
+        limit (int)                   – max items (default 25)
+        last_evaluated_key (json str) – pass DynamoDB key from previous page
+    """
     try:
-        result = table.query(
-            KeyConditionExpression=Key('PARTITION_KEY').eq('CASE')
-        )
-        
-        items = result.get('Items', [])
-        print("The items are ", items)
-        current_item = {}
-        final_items = []
-        for item in items:
-            current_item = item
-            current_item["transaction_id"] = current_item["SORT_KEY"]
-            current_item.pop("PARTITION_KEY", None)
-            current_item.pop("SORT_KEY", None)
-            final_items.append(current_item)
-        return response(200, {'open_cases': final_items})
+        params = event.get("queryStringParameters") or {}
+        limit = int(params.get("limit", 25))
+
+        lek_param = params.get("last_evaluated_key")
+        exclusive_start_key = json.loads(lek_param) if lek_param else None
+
+        query_kwargs = {
+            "KeyConditionExpression": Key("PARTITION_KEY").eq("CASE"),
+            "Limit": limit,
+        }
+        if exclusive_start_key:
+            query_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+        result = table.query(**query_kwargs)
+
+        items = []
+        for item in result.get("Items", []):
+            item["transaction_id"] = item.pop("SORT_KEY")
+            item.pop("PARTITION_KEY", None)
+            items.append(item)
+
+        response_body = {
+            "open_cases": items,
+            "last_evaluated_key": result.get("LastEvaluatedKey"),
+        }
+        return response(200, response_body)
     except Exception as e:
-        print("An error occurred ", e)
-        return response(500, {'message': str(e)})
+        logger.error("get_open_cases error: %s", e, exc_info=True)
+        return response(500, {"message": str(e)})
 
 def get_closed_cases(event, context):
+    """
+    Return closed cases with optional pagination.
+    Same query-string params as `get_open_cases`.
+    """
     try:
-        result = table.query(
-            KeyConditionExpression=Key('PARTITION_KEY').eq('CLOSED_CASE')
-        )
-        
-        items = result.get('Items', [])
-        print("The items are ", items)
-        return response(200, {'closed_cases': items})
+        params = event.get("queryStringParameters") or {}
+        limit = int(params.get("limit", 25))
+        lek_param = params.get("last_evaluated_key")
+        exclusive_start_key = json.loads(lek_param) if lek_param else None
+
+        query_kwargs = {
+            "KeyConditionExpression": Key("PARTITION_KEY").eq("CLOSED_CASE"),
+            "Limit": limit,
+        }
+        if exclusive_start_key:
+            query_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+        result = table.query(**query_kwargs)
+
+        items = result.get("Items", [])
+        response_body = {
+            "closed_cases": items,
+            "last_evaluated_key": result.get("LastEvaluatedKey"),
+        }
+        return response(200, response_body)
     except Exception as e:
-        print("An error occurred ", e)
-        return response(500, {'message': str(e)})
+        logger.error("get_closed_cases error: %s", e, exc_info=True)
+        return response(500, {"message": str(e)})
 
 def close_case(event, context):
     try:
