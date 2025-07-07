@@ -29,7 +29,6 @@ def response_lambda(status_code, body):
     }
     return dictionary
 
-
 def alternate_response_lambda(status_code, body):
     response_message = ""
     if status_code == 200:

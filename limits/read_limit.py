@@ -6,6 +6,8 @@ def read_limit(event, limit_type):
     try:
         table = get_dynamodb_table()
         params = event['queryStringParameters'] or {}
+        params["application_id"] = params.get("processor")
+        params["account_id"] = params.get("account_ref")
         print("The params are ", params)
 
         partition_key, sort_key = construct_keys(params, limit_type)
@@ -25,19 +27,25 @@ def read_limit(event, limit_type):
             if item != []:
                 for an_item in item:
                     current_item = an_item
-                    current_item["account_id"] = ""
-                    current_item["application_id"] = ""
+                    #current_item["account_id"] = ""
+                    #current_item["application_id"] = ""
+                    current_item["account_ref"] = ""
+                    current_item["processor"] = ""
                     current_item["merchant_id"] = ""
                     current_item["product_id"] = ""
                     if limit_type.lower() == "account":
-                        current_item["account_id"] = ""
-                    elif limit_type.lower() == "account-application":
-                        current_item["application_id"] = current_item["SORT_KEY"]
-                    elif limit_type.lower() == "account-application-merchant":
-                        current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                        #current_item["account_id"] = ""
+                        current_item["account_ref"] = ""
+                    elif limit_type.lower() == "account_application":
+                        #current_item["application_id"] = current_item["SORT_KEY"]
+                        current_item["processor"] = current_item["SORT_KEY"]
+                    elif limit_type.lower() == "account_application_merchant":
+                        #current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                        current_item["processor"] = current_item["SORT_KEY"].split("__")[0]
                         current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
-                    elif limit_type.lower() == "account-application-merchant-product":
-                        current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    elif limit_type.lower() == "account_application_merchant_product":
+                        #current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                        current_item["processor"] = current_item["SORT_KEY"].split("__")[0]
                         current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
                         current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
                     stuff_to_send.append(current_item)                    
@@ -47,24 +55,44 @@ def read_limit(event, limit_type):
             item = response.get('Items')
             for an_item in item:
                 current_item = an_item
-                current_item["account_id"] = ""
-                current_item["application_id"] = ""
+                #current_item["account_id"] = ""
+                #current_item["application_id"] = ""
+                current_item["account_ref"] = ""
+                current_item["processor"] = ""
                 current_item["merchant_id"] = ""
                 current_item["product_id"] = ""
                 if limit_type.lower() == "account":
-                    current_item["account_id"] = ""
-                elif limit_type.lower() == "account-application":
-                    current_item["application_id"] = current_item["SORT_KEY"]
-                elif limit_type.lower() == "account-application-merchant":
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    #current_item["account_id"] = ""
+                    current_item["account_ref"] = ""
+                elif limit_type.lower() == "account_application":
+                    #current_item["application_id"] = current_item["SORT_KEY"]
+                    current_item["processor"] = current_item["SORT_KEY"]
+                elif limit_type.lower() == "account_application_merchant":
+                    #current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["processor"] = current_item["SORT_KEY"].split("__")[0]
                     current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
-                elif limit_type.lower() == "account-application-merchant-product":
-                    current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                elif limit_type.lower() == "account_application_merchant_product":
+                    #current_item["application_id"] = current_item["SORT_KEY"].split("__")[0]
+                    current_item["processor"] = current_item["SORT_KEY"].split("__")[0]
                     current_item["merchant_id"] = current_item["SORT_KEY"].split("__")[1]
                     current_item["product_id"] = current_item["SORT_KEY"].split("__")[2]
                 stuff_to_send.append(current_item)
 
         print("The item is ", stuff_to_send)
+        for item in stuff_to_send:
+            if "APPLICATION" in item["PARTITION_KEY"]:
+                item["PARTITION_KEY"] = item["PARTITION_KEY"].replace("APPLICATION", "PROCESSOR")
+            partition_key = item["PARTITION_KEY"]
+            item["channel"] = partition_key.split("-")[1]
+            if "ACCOUNT" in partition_key:
+                item["entity_type"] = "account"
+            if "PROCESSOR" in partition_key:
+                item["entity_type"] = "processor"
+            if "MERCHANT" in partition_key:
+                item["entity_type"] = "merchant"
+            if "PRODUCT" in partition_key:
+                item["entity_type"] = "product"
+            item.pop("PARTITION_KEY")
         return alternate_response_lambda(200, stuff_to_send)
     except Exception as e:
         print("An error occured ", e)
@@ -72,6 +100,7 @@ def read_limit(event, limit_type):
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
+    channel = channel.lower()
     if not channel:
         return None, None
     

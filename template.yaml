@@ -33,17 +33,17 @@ Resources:
         LimitsAccountApplication:
           Type: Api
           Properties:
-            Path: /limits/account-application
+            Path: /limits/account-processor
             Method: ANY
         LimitsAccountApplicationMerchant:
           Type: Api
           Properties:
-            Path: /limits/account-application-merchant
+            Path: /limits/account-processor-merchant
             Method: ANY
         LimitsAccountApplicationMerchantProduct:
           Type: Api
           Properties:
-            Path: /limits/account-application-merchant-product
+            Path: /limits/account-processor-merchant-product
             Method: ANY
       Policies:
         - AWSXrayWriteOnlyAccess
@@ -72,6 +72,34 @@ Resources:
           Type: Api
           Properties:
             Path: /lists
+            Method: POST
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            Resource: '*'
+  
+  CreateNewListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: create_new_list.lambda_handler
+      Events:
+        CreateNewList:
+          Type: Api
+          Properties:
+            Path: /lists/new
             Method: POST
       Policies:
         - AWSXrayWriteOnlyAccess
@@ -142,6 +170,34 @@ Resources:
             - dynamodb:UpdateItem
             - dynamodb:Scan
             Resource: '*'
+  
+  GetAllListsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: get_all_list_types.lambda_handler
+      Events:
+        GetAllLists:
+          Type: Api
+          Properties:
+            Path: /lists/new/all
+            Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            Resource: '*'
 
   ListsUpdateFunction:
     Type: AWS::Serverless::Function
@@ -153,6 +209,34 @@ Resources:
           Type: Api
           Properties:
             Path: /lists
+            Method: PUT
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            Resource: '*'
+  
+  UpdateListTypeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: update_list_type.lambda_handler
+      Events:
+        UpdateListType:
+          Type: Api
+          Properties:
+            Path: /lists/new/update
             Method: PUT
       Policies:
         - AWSXrayWriteOnlyAccess
@@ -199,11 +283,39 @@ Resources:
             - dynamodb:Scan
             Resource: '*'
   
+  DeleteListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: delete_list_type.lambda_handler
+      Events:
+        DeleteListType:
+          Type: Api
+          Properties:
+            Path: /lists/new/delete
+            Method: DELETE
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            Resource: '*'
+  
   EvaluatedTransactionsFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./evaluated_transactions
-      Handler: app.lambda_handler
+      Handler: app_with_pagination_3.lambda_handler
       Events:
         QueryEvaluatedTransactions:
           Type: Api
@@ -238,7 +350,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./case_management
-      Handler: app.lambda_handler
+      Handler: app_2.lambda_handler
       Events:
         CreateCase:
           Type: Api
@@ -275,11 +387,52 @@ Resources:
           Properties:
             Path: /report
             Method: POST
+        GetAllCaseReports:
+          Type: Api
+          Properties:
+            Path: /reports
+            Method: GET
+        EditReport:
+          Type: Api
+          Properties:
+            Path: /report
+            Method: PUT
+        DeleteReport:
+          Type: Api
+          Properties:
+            Path: /report
+            Method: DELETE
+        CreateInvestigator:
+          Type: Api
+          Properties:
+            Path: /investigator
+            Method: POST
+        GetInvestigator:
+          Type: Api
+          Properties:
+            Path: /investigator
+            Method: GET
+        GetAllInvestigators:
+          Type: Api
+          Properties:
+            Path: /investigators
+            Method: GET
+        UpdateInvestigator:
+          Type: Api
+          Properties:
+            Path: /investigator
+            Method: PUT
+        DeleteInvestigator:
+          Type: Api
+          Properties:
+            Path: /investigator
+            Method: DELETE
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
         - DynamoDBCrudPolicy:
             TableName: '*'
+
   
   UNListManagementFunction:
     Type: AWS::Serverless::Function

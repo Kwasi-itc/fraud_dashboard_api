@@ -54,6 +54,7 @@ def lambda_handler(event, context):
         # Extract basic parameters
         list_type = body['list_type']
         channel = body['channel']
+        channel = channel.lower()
         entity_type = body['entity_type']
         
         # Validate list type
@@ -72,21 +73,18 @@ def lambda_handler(event, context):
         
         # Generate current and new sort keys
         try:
-            # Handle both account_id and account_ref in the input
-            account_id = current_ids.get("account_id") or current_ids.get("account_ref")
             current_sort_key = get_sort_key(
                 entity_type,
-                account_id,
-                current_ids.get("application_id") or current_ids.get("processor"),
+                current_ids.get("account_ref"),
+                current_ids.get("processor"),
                 current_ids.get("merchant_id"),
                 current_ids.get("product_id")
             )
             
-            new_account_id = new_ids.get("account_id") or new_ids.get("account_ref")
             new_sort_key = get_sort_key(
                 entity_type,
-                new_account_id,
-                new_ids.get("application_id") or new_ids.get("processor"),
+                new_ids.get("account_ref"),
+                new_ids.get("processor"),
                 new_ids.get("merchant_id"),
                 new_ids.get("product_id")
             )
@@ -111,49 +109,36 @@ def lambda_handler(event, context):
         if not existing_item:
             return response(404, {'message': 'Item not found'})
 
+        print(f"Existing item: {existing_item}")
+
         # Create new item with updated sort key
-        new_item = {
+        new_item = existing_item.copy()  # Copy all existing attributes
+        new_item.update({
             'PARTITION_KEY': partition_key,
             'SORT_KEY': new_sort_key,
-            'entity_id': new_sort_key,  # Make sure to update entity_id as well
-            'created_at': str(datetime.now())
-        }
-        
-        # Copy all attributes except those we're explicitly setting
-        for key, value in existing_item.items():
-            if key not in ['PARTITION_KEY', 'SORT_KEY', 'entity_id', 'created_at']:
-                new_item[key] = value
+            'entity_id': new_sort_key,  # Update entity_id to match new sort key
+            'updated_at': str(datetime.now())
+        })
 
         print(f"New item to create: {new_item}")
 
-        # Use a transaction to ensure atomicity
+        # Use table.delete_item and table.put_item instead of transact_write_items
         try:
-            transact_items = [
-                {
-                    'Delete': {
-                        'TableName': table_name,
-                        'Key': {
-                            'PARTITION_KEY': partition_key,
-                            'SORT_KEY': current_sort_key
-                        }
-                    }
-                },
-                {
-                    'Put': {
-                        'TableName': table_name,
-                        'Item': new_item
-                    }
+            # Delete the old item
+            table.delete_item(
+                Key={
+                    'PARTITION_KEY': partition_key,
+                    'SORT_KEY': current_sort_key
                 }
-            ]
+            )
             
-            dynamodb.meta.client.transact_write_items(TransactItems=transact_items)
+            # Put the new item
+            table.put_item(Item=new_item)
+            
             return response(200, {'message': 'Item updated successfully', 'new_item': new_item})
             
         except ClientError as e:
-            print(f"Transaction error: {e}")
-            if "TransactionCanceledException" in str(e):
-                cancellation_reasons = e.response.get('CancellationReasons', [])
-                print(f"Cancellation reasons: {cancellation_reasons}")
+            print(f"Operation error: {e}")
             return response(500, {'message': f"Error updating item: {str(e)}"})
             
     except ClientError as e:

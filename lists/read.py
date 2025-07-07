@@ -45,16 +45,18 @@ def handle_specific_query(event):
         return response(200, query_items_in_all_lists_sorted_by_date())
     list_type = params.get('list_type')
     channel = params.get('channel')
+    if channel is not None:
+        channel = channel.lower()
     entity_type = params.get('entity_type')
-    account_id = params.get('account_id')
-    application_id = params.get('application_id')
+    account_id = params.get('account_ref')
+    application_id = params.get('processor')
     merchant_id = params.get('merchant_id')
     product_id = params.get('product_id')
     
     entity_id = ""
     if entity_type == "ACCOUNT":
         entity_id = account_id
-    elif entity_type == "APPLICATION":
+    elif entity_type == "APPLICATION" or entity_type == "PROCESSOR":
         entity_id = application_id
     elif entity_type == "MERCHANT":
         if application_id is not None and merchant_id is not None:
@@ -67,13 +69,14 @@ def handle_specific_query(event):
         else:
             entity_id = None
     else:
-        return response(400, {"error": "Entity type must be ACCOUNT | APPLICATION | MERCHANT | PRODUCT"})
+        return response(400, {"error": "Entity type must be ACCOUNT | PROCESSOR | MERCHANT | PRODUCT"})
 
     if not all([list_type, channel, entity_type]):
         return response(400, "Missing required parameters")
 
     items = query_specific(list_type, channel, entity_type, entity_id)
     return response(200, items)
+
 
 def handle_list_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -83,17 +86,18 @@ def handle_list_type_query(event):
         return response(400, "List type is required")
 
     items = query_by_list_type(list_type)
-    return response(200, items)
+    return response(200, transform_items(items))
 
 def handle_channel_query(event):
     params = event['queryStringParameters'] or {}
     channel = params.get('channel')
+    entity_type = params.get('entity_type', "")
 
     if not channel:
         return response(400, "Channel is required")
 
-    items = query_by_channel(channel)
-    return response(200, items)
+    items = query_by_channel(channel, entity_type)
+    return response(200, transform_items(items))
 
 def handle_entity_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -103,7 +107,7 @@ def handle_entity_type_query(event):
         return response(400, "Entity type is required")
 
     items = query_by_entity_type(entity_type)
-    return response(200, items)
+    return response(200, transform_items(items))
 
 def handle_list_type_and_entity_type_query(event):
     params = event['queryStringParameters'] or {}
@@ -123,18 +127,19 @@ def handle_date_range_query(event):
 
     if not start_date or not end_date:
         return response(400, "Both start_date and end_date are required")
+    try:
+        # Parse dates and set time components
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        items = query_by_date_range(start, end)
+        return response(200, items)
+    except ValueError as e:
+        return response(400, f"Invalid date format. Use YYYY-MM-DD: {str(e)}")
 
-    items = query_by_date_range(start_date, end_date)
-    return response(200, items)
-
-def query_specific(list_type, channel, entity_type, entity_id):
-    partition_key = f"{list_type}-{channel}-{entity_type}"
-    if entity_id:
-        response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': entity_id})
-        return [response.get('Item')] if 'Item' in response else []
-    else:
-        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
-        return transform_items(response.get('Items', []))
 
 def query_items_in_all_lists_sorted_by_date():
     """
@@ -148,12 +153,24 @@ def query_items_in_all_lists_sorted_by_date():
     list_types = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
     
     # Fetch items for each list type
+    
     for list_type in list_types:
+        list_type = list_type.upper()
         response = table.scan(
             FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').begins_with(f"{list_type}-")
         )
         items = response.get('Items', [])
-        all_items.extend(items)
+        new_items = []
+        for item in items:
+            new_item = item
+            #new_item["PARTITION_KEY"] = item["PARTITION_KEY"]
+            #new_item["SORT_KEY"] = item["SORT_KEY"]
+            if "created_at" not in item:
+                new_item["created_at"] = "2020-01-01 00:00:00.000000"
+            else:
+                new_item["created_at"] = item["created_at"]
+            new_items.append(new_item)
+        all_items.extend(new_items)
     
     # Sort items by created_at in descending order
     sorted_items = sorted(
@@ -165,13 +182,31 @@ def query_items_in_all_lists_sorted_by_date():
     # Transform items (rename SORT_KEY to entity_id and remove PARTITION_KEY)
     return transform_items(sorted_items)
 
+def query_specific(list_type, channel, entity_type, entity_id):
+    partition_key = f"{list_type}-{channel}-{entity_type}"
+    if entity_id:
+        response = table.get_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': entity_id})
+        return transform_items([response.get('Item')]) if 'Item' in response else []
+    else:
+        response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('PARTITION_KEY').eq(partition_key))
+        items = response.get('Items', [])
+        return transform_items(items)
+
 def query_by_list_type(list_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').begins_with(f"{list_type}-"))
-    return transform_items(response.get('Items', []))
+    items = response.get('Items', [])
+    return transform_items(items)
 
-def query_by_channel(channel):
+def query_by_channel(channel, entity_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{channel}-"))
-    return transform_items(response.get('Items', []))
+    if entity_type == "":
+        return response.get('Items', [])        
+    all_items = response.get('Items', [])
+    filtered_items = []
+    for item in all_items:
+        if entity_type.upper() in item["PARTITION_KEY"]:
+            filtered_items.append(item)
+    return transform_items(filtered_items)#response.get('Items', [])
 
 def query_by_entity_type(entity_type):
     response = table.scan(FilterExpression=boto3.dynamodb.conditions.Attr('PARTITION_KEY').contains(f"-{entity_type}"))
@@ -180,14 +215,18 @@ def query_by_entity_type(entity_type):
     for item in items:
         current_item = item
         if "ACCOUNT" in item["PARTITION_KEY"]:
-            current_item["account_id"] = item["SORT_KEY"]
+            #current_item["account_id"] = item["SORT_KEY"]
+            current_item["account_ref"] = item["SORT_KEY"]
         elif "APPLICATION" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"]
+            #current_item["application_id"] = item["SORT_KEY"]
+            current_item["processor"] = item["SORT_KEY"]
         elif "MERCHANT" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            #current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["processor"] = item["SORT_KEY"]
             current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
         elif "PRODUCT" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            #current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["processor"] = item["SORT_KEY"]
             current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
             current_item["product_id"] = item["SORT_KEY"].split("__")[2]
         items_to_send.append(current_item)
@@ -204,14 +243,17 @@ def query_by_list_and_entity_type(list_type, entity_type):
     for item in items:
         current_item = item
         if "ACCOUNT" in item["PARTITION_KEY"]:
-            current_item["account_id"] = item["SORT_KEY"]
+            current_item["account_ref"] = item["SORT_KEY"]
         elif "APPLICATION" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"]
+            #current_item["application_id"] = item["SORT_KEY"]
+            current_item["processor"] = item["SORT_KEY"]
         elif "MERCHANT" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            #current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["processor"] = item["SORT_KEY"]
             current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
         elif "PRODUCT" in item["PARTITION_KEY"]:
-            current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            #current_item["application_id"] = item["SORT_KEY"].split("__")[0]
+            current_item["processor"] = item["SORT_KEY"]
             current_item["merchant_id"] = item["SORT_KEY"].split("__")[1]
             current_item["product_id"] = item["SORT_KEY"].split("__")[2]
         items_to_send.append(current_item)
@@ -220,15 +262,15 @@ def query_by_list_and_entity_type(list_type, entity_type):
 
 
 
-
 def query_by_date_range(start_date, end_date):
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
+    start_str = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
+    end_str = end_date.strftime("%Y-%m-%d %H:%M:%S.%f")
+    
     response = table.scan(
-        FilterExpression=boto3.dynamodb.conditions.Attr('created_at').between(start.isoformat(), end.isoformat())
+        FilterExpression=Attr('created_at').between(start_str, end_str)
     )
-    return transform_items(response.get('Items', []))
-
+    items = response.get('Items', [])
+    return transform_items(items)
 
 def transform_items(items):
     """
@@ -245,11 +287,33 @@ def transform_items(items):
     for item in items:
         # Create a new dictionary for the transformed item
         transformed_item = item.copy()
+        transformed_item["account_ref"] = ""
+        transformed_item["processor"] = ""
+        transformed_item["merchant_id"] = ""
+        transformed_item["product_id"] = ""
         
         # Get the SORT_KEY value and remove the original key
         if 'SORT_KEY' in transformed_item:
             transformed_item['entity_id'] = transformed_item.pop('SORT_KEY')
+        if 'PARTITION_KEY' in transformed_item:
+            partition_key = transformed_item["PARTITION_KEY"]
+            transformed_item["list_type"] = partition_key.split("-")[0]
+            transformed_item["channel"] = partition_key.split("-")[1]
+            transformed_item["entity_type"] = partition_key.split("-")[2]
+            if transformed_item["entity_type"] == "ACCOUNT":
+                transformed_item["account_ref"] = transformed_item["entity_id"]
+            if transformed_item["entity_type"] == "APPLICATION":
+                transformed_item["entity_type"] = "PROCESSOR"
+                transformed_item["processor"] = transformed_item["entity_id"]
+            if transformed_item["entity_type"] == "MERCHANT":
+                transformed_item["processor"] = transformed_item["entity_id"].split("__")[0]
+                transformed_item["merchant_id"] = transformed_item["entity_id"].split("__")[1]
+            if transformed_item["entity_type"] == "PRODUCT":
+                transformed_item["processor"] = transformed_item["entity_id"].split("__")[0]
+                transformed_item["merchant_id"] = transformed_item["entity_id"].split("__")[1]
+                transformed_item["product_id"] = transformed_item["entity_id"].split("__")[2]
             
+            transformed_item.pop("PARTITION_KEY")   
         transformed_items.append(transformed_item)
         
     return transformed_items
@@ -271,3 +335,9 @@ def response(status_code, body):
             'Access-Control-Allow-Credentials': True,
         },
     }
+
+
+### "remove partition_key" and then change sort_key into entity_id
+### total lists limited by number normal hitting of API
+### return back after adding/updating
+### assigned_to return entire json
