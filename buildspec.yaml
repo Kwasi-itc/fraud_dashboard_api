@@ -5,8 +5,10 @@ phases:
       python: 3.11  # Specify the Python version you need
     commands: 
       - echo "[Install phase] Python 3.11 runtime configured."
-      # The 'sam build' command will handle the requirements, 
-      # so the 'pip install' line is not needed here.
+      - echo "Installing AWS SAM CLI..."
+      # Install SAM CLI to make it available in the new Python 3.11 environment
+      - pip install aws-sam-cli
+      - echo "SAM CLI installed."
   build:
     commands:
       - echo "[Build phase] Starting SAM build..."
