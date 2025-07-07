@@ -280,6 +280,28 @@ Resources:
         - AWSLambdaSQSQueueExecutionRole
         - DynamoDBCrudPolicy:
             TableName: '*'
+  
+  UNListManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lists
+      Handler: un_list.lambda_handler
+      Events:
+        UpdateList:
+          Type: Api
+          Properties:
+            Path: /unlist/refresh
+            Method: POST
+        GetList:
+          Type: Api
+          Properties:
+            Path: /unlist/get
+            Method: GET
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
 
 # Make sure to add the necessary IAM permissions for this function to access your DynamoDB table
 
