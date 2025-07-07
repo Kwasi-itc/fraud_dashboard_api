@@ -4,10 +4,14 @@ from utils import response_lambda, get_dynamodb_table
 
 def create_limit(event, limit_type):
     try:
+        print("I am here 4")
         table = get_dynamodb_table()
         params = event['queryStringParameters'] or {}
+        params["account_id"] = params.get("account_ref")
+        params["application_id"] = params.get("processor")
         body = json.loads(event['body'])
         print("The body is ", body)
+        print("I am here 6")
         partition_key, sort_key = construct_keys(params, limit_type)
     
         if not partition_key:
@@ -29,6 +33,7 @@ def create_limit(event, limit_type):
         }
     
         table.put_item(Item=item)
+        print("I am here 9")
         return response_lambda(200, {"message": "Limit created successfully"})
     except Exception as e:
         print("An error occured ", e)
@@ -36,9 +41,10 @@ def create_limit(event, limit_type):
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
+    channel = channel.lower()
     if not channel:
         return None, None
-    
+    print("I am here 7")
     partition_key = f"LIMITS-{channel}-{limit_type}"
     sort_key = "__".join(filter(None, [
         params.get('application_id'),
@@ -46,6 +52,7 @@ def construct_keys(params, limit_type):
         params.get('product_id')
     ]))
 
+    print("I am here 8")
     if limit_type.lower() == "account":
         sort_key = "-"
     

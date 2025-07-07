@@ -4,12 +4,29 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
 import re
+import base64
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
+PAGE_SIZE = 50  # Default page size
+
+def encode_pagination_token(last_evaluated_key):
+    if not last_evaluated_key:
+        return None
+    return base64.b64encode(json.dumps(last_evaluated_key).encode()).decode()
+
+def decode_pagination_token(pagination_token):
+    if not pagination_token:
+        return None
+    try:
+        return json.loads(base64.b64decode(pagination_token.encode()).decode())
+    except:
+        raise ValueError('Invalid pagination token')
+
 
 def parse_key(key, account_id, application_id, merchant_id, product_id):
+    #print("I am here 2c")
     parts = key.split('-')
     channel = parts[1]
     entities = parts[2].split('_')
@@ -32,8 +49,10 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
         year = key.split("HOUR")[1].split("-")[1]
     result = {
         "channel": channel,
-        "account_id": account_id,
-        "application_id": application_id,
+        #"account_id": account_id,
+        'account_ref': account_id,
+        #"application_id": application_id,
+        "processor": application_id,
         "merchant_id": merchant_id,
         "product_id": product_id,
         "period": period,
@@ -57,13 +76,15 @@ def parse_key(key, account_id, application_id, merchant_id, product_id):
         result["month"] = key.split("HOUR")[1].split("-")[2]
         result["day"] = key.split("HOUR")[1].split("-")[3]
         result["hour"] = key.split("HOUR")[1].split("-")[4]
-    
+    #print("I am here 2d")
     return result
 
 def transform_aggregates(relevant_aggregates, account_id, application_id, merchant_id, product_id):
+    print("I am here 2b")
     result = {}
     for key, value in relevant_aggregates.items():
         parsed = parse_key(key, account_id, application_id, merchant_id, product_id)
+        #print("I am here 2e")
         category = ""
         if "ACCOUNT" in key:
             category = "ACCOUNT"
@@ -75,7 +96,8 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
             category = "ACCOUNT_APPLICATION_MERCHANT_PRODUCT"
         
         if category == "ACCOUNT":
-            parsed["application_id"] = ""
+            #parsed["application_id"] = ""
+            parsed["processor"] = ""
             parsed['merchant_id'] = ""
             parsed['product_id'] = ""
         elif category == "ACCOUNT_APPLICATION":
@@ -92,8 +114,10 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
             "COUNT": value["COUNT"],
             "VERSION": value["VERSION"],
             "SUM": value["SUM"],
-            "account_id": parsed["account_id"],
-            "application_id": parsed["application_id"],
+            #"account_id": parsed["account_id"],
+            "account_ref": parsed["account_ref"],#parsed["account_id"],
+            #"application_id": parsed["application_id"],
+            "processor": parsed["processor"],#parsed["application_id"],
             "merchant_id": parsed["merchant_id"],
             "product_id": parsed["product_id"],
             "period": parsed["period"],
@@ -106,7 +130,7 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
         }
         
         result[category].append(entry)
-    
+    print("I am here 2f")
     return result
 
 
@@ -117,6 +141,9 @@ def lambda_handler(event, context):
         print("The event is ", event)
         query_params = event['queryStringParameters'] or {}
         print("The query params are ", query_params)
+
+        page_size = int(query_params.get('page_size', PAGE_SIZE))
+        pagination_token = query_params.get('pagination_token', None)
         
         start_date = query_params.get('start_date')
         end_date = query_params.get('end_date')
@@ -125,21 +152,44 @@ def lambda_handler(event, context):
         channel = query_params.get('channel', '')
         query_type = query_params.get('query_type', '')
         
-        if not start_date or not end_date:
+        #if not start_date or not end_date and query_type != "single":
+        #    return response(400, {'message': 'start_date and end_date are required'})
+        if query_type != "single" and (not start_date or not end_date):
             return response(400, {'message': 'start_date and end_date are required'})
-        
+
         start_timestamp = int(datetime.strptime(start_date, '%Y-%m-%d').timestamp())
         end_timestamp = int((datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).timestamp() - 1)
         #end_timestamp = int(datetime.strptime(end_date, '%Y-%m-%d').timestamp())
         
         partition_key = construct_partition_key(query_params)
         items = []
+        result = {}
         if query_type == 'entity_list':
-            items = query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, query_type, channel)
+            result = query_transactions_by_entity_and_list(start_timestamp, 
+                                                          end_timestamp, 
+                                                          list_type, 
+                                                          entity_type, 
+                                                          query_type, 
+                                                          channel,
+                                                            page_size,
+                                                            pagination_token)
+        elif query_type == 'single':
+            items = query_transaction_by_id(partition_key, query_params)
+            result = {
+                'items': items,
+                'next_token': None
+            }
         else:
-            items = query_transactions(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type)
+            result = query_transactions(partition_key,
+                                        start_timestamp,
+                                        end_timestamp,
+                                        query_params, 
+                                        channel, 
+                                        query_type,
+                                        page_size,
+                                        pagination_token)
         
-        return response(200, {'items': items})
+        return response(200, result)
     
     except Exception as e:
         print("An error occured ", e)
@@ -151,33 +201,92 @@ def construct_partition_key(params):
     list_type = params.get('list_type', '')
     #entity_type = params.get('entity_type', '')
     
-    if query_type == 'all' or query_type == 'normal' or query_type == 'affected':
+    if query_type == 'all' or query_type == 'normal' or query_type == 'affected' or query_type == 'single':
         return 'EVALUATED'
     elif query_type == 'account':
-        return f"EVALUATED-{channel}-ACCOUNT-{params.get('account_id', '')}"
-    elif query_type == 'application':
-        return f"EVALUATED-{channel}-APPLICATION-{params.get('application_id', '')}"
+        return f"EVALUATED-{channel}-ACCOUNT-{params.get('account_ref', '')}"
+    #elif query_type == 'application':
+    elif query_type == 'processor':
+        return f"EVALUATED-{channel}-APPLICATION-{params.get('processor', '')}"
     elif query_type == 'merchant':
-        return f"EVALUATED-{channel}-MERCHANT-{params.get('application_id', '')}__{params.get('merchant_id', '')}"
+        return f"EVALUATED-{channel}-MERCHANT-{params.get('processor', '')}__{params.get('merchant_id', '')}"
     elif query_type == 'product':
-        return f"EVALUATED-{channel}-PRODUCT-{params.get('application_id', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
+        return f"EVALUATED-{channel}-PRODUCT-{params.get('processor', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
     elif query_type in ['blacklist', 'watchlist', 'stafflist', 'limit', 'card-diff-country-6h']:
+        if query_type == 'stafflist':
+            return "EVALUATED-STAFF"
         return f"EVALUATED-{query_type.upper()}"
     elif query_type == 'entity_list':
         return f"EVALUATED-{list_type.upper()}"
     else:
         raise ValueError('Invalid query type')
 
-def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, query_type, channel=''):
+def query_transaction_by_id(partition_key, params):
+    response = table.query(
+        KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').eq(params.get("transaction_id"))
+    )
+    
+    items = []
+    if 'Items' in response:
+        items = response['Items']
+    if 'Item' in response:
+        items = response['Item']
+        items = [items]
+    print("The items are ", items)
+    processed_items = []
+    for item in items:
+        processed_transaction = json.loads(item["processed_transaction"]) 
+        original_transaction = processed_transaction["original_transaction"]
+        evaluation = processed_transaction.get('evaluation', {})
+        account_id = original_transaction['account_id']
+        application_id = original_transaction['application_id']
+        merchant_id = original_transaction['merchant_id']
+        product_id = original_transaction['product_id']
+
+        
+        
+        processed_item = {
+            #'account_id': account_id,
+            'account_ref': account_id,
+            #'application_id': application_id,
+            'processor': application_id,
+            'merchant_id': merchant_id,
+            'product_id': product_id,
+            'transaction_id': original_transaction['transaction_id'],
+            'date': original_transaction['date'],
+            'amount': original_transaction['amount'],
+            'currency': original_transaction['currency'],
+            'country': original_transaction['country'],
+            'channel': original_transaction['channel'],
+            'evaluation': transform_keys(evaluation),
+            'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
+            #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
+        }
+        processed_items.append(processed_item)
+    return processed_items
+
+def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_type, entity_type, query_type, channel, limit, pagination_token):
     partition_key = f"EVALUATED-{list_type.upper()}"
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
     
-    response = table.query(
-        KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk)
-    )
+    # Prepare query parameters
+    query_params = {
+        'KeyConditionExpression': Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk),
+        'Limit': limit,
+        'ScanIndexForward': False
+    }
+
+    if pagination_token:
+        last_evaluated_key = decode_pagination_token(pagination_token)
+        if last_evaluated_key:
+            query_params['ExclusiveStartKey'] = last_evaluated_key
     
-    items = response['Items']
+    response = table.query(**query_params)
+    
+    items = response.get('Items', [])
+    last_evaluated_key = response.get('LastEvaluatedKey')
+    
     
     filtered_items = []
     for item in items:
@@ -202,12 +311,13 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
         merchant_id = original_transaction['merchant_id']
         product_id = original_transaction['product_id']
         assigned_person = assigned_status(original_transaction['transaction_id'])
-
         
         
         processed_item = {
-            'account_id': account_id,
-            'application_id': application_id,
+            #'account_id': account_id,
+            'account_ref': account_id,
+            #'application_id': application_id,
+            'processor': application_id,
             'merchant_id': merchant_id,
             'product_id': product_id,
             'transaction_id': original_transaction['transaction_id'],
@@ -216,7 +326,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             'currency': original_transaction['currency'],
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
-            'evaluation': evaluation,
+            'evaluation': transform_keys(evaluation),
             'assigned_to': assigned_person,
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
@@ -227,18 +337,62 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
             if channel == processed_item['channel']:
                 processed_items.append(processed_item)
 
-    return processed_items
+    return {
+        'items': processed_items,
+        'next_token': encode_pagination_token(last_evaluated_key) if last_evaluated_key else None
+    }
 
 
-def query_transactions(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type):
+def query_transactions(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type, limit, pagination_token):
+    print("I am here 1")
     start_sk = f"{start_timestamp}_"
     end_sk = f"{end_timestamp}_z"
+
+    print("The query_params are ", query_params)
     
-    response = table.query(
-        KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk)
-    )
+    # Prepare query parameters
+    query_params = {
+        'KeyConditionExpression': Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk),
+        'Limit': limit
+    }
+
     
-    items = response['Items']
+    print("Partition key is ", partition_key)
+    print("Start and end timestamp is ", start_sk, end_sk)
+    print("The limit is ", limit)
+
+    response = None
+    if pagination_token:
+        last_evaluated_key = decode_pagination_token(pagination_token)
+        if last_evaluated_key:
+            query_params['ExclusiveStartKey'] = last_evaluated_key
+            response = table.query(KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk),
+                                    Limit=limit,
+                                    ExclusiveStartKey=last_evaluated_key,
+                                    ScanIndexForward=False)
+    else:
+        response = table.query(KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk), Limit=limit,
+                                    ScanIndexForward=False)
+            
+    print("The response from the db is ", response)
+    ##Testing stuff
+    #test_response = table.query(
+    #    KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk)
+    #    )
+    #print("The test response is ", test_response)
+
+    #response = table.query(**query_params)
+    #response = table.query(KeyConditionExpression=Key('PARTITION_KEY').eq(partition_key) & Key('SORT_KEY').between(start_sk, end_sk), Limit=limit)
+    last_evaluated_key = response.get('LastEvaluatedKey')
+
+    
+    items = []
+    if "Item" in response:
+        items = response['Item']
+        items = [items]
+    if "Items" in response:
+        items = response['Items']
+    
     print("The items are ", items)
 
     filtered_items = [
@@ -247,6 +401,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     ]
 
     print("The filtered items are ", filtered_items)
+    print("I am here 2")
     
     # Process items to return only necessary information
     processed_items = []
@@ -262,8 +417,10 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         
         
         processed_item = {
-            'account_id': account_id,
-            'application_id': application_id,
+            #'account_id': account_id,
+            'account_ref': account_id,
+            #'application_id': application_id,
+            'processor': application_id,
             'merchant_id': merchant_id,
             'product_id': product_id,
             'transaction_id': original_transaction['transaction_id'],
@@ -272,18 +429,18 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             'currency': original_transaction['currency'],
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
-            'evaluation': evaluation,
+            'evaluation': transform_keys(evaluation),
             'assigned_to': assigned_person,
             'relevant_aggregates': transform_aggregates(processed_transaction.get('aggregates', {}), account_id, application_id, merchant_id, product_id)
             #'relevant_aggregates': get_relevant_aggregates(processed_transaction.get('aggregates', {}), original_transaction, evaluation)
         }
-        if query_type == "all":
+        if query_type == "all" or query_type == "limit":
             processed_items.append(processed_item)
         else:
             if channel == processed_item['channel']:
                 processed_items.append(processed_item)
         ##The query comes with channel all the time, so if channel is 
-    
+    print("I am here 3")
     print("The query params when trying to get the items are ", query_params)
     query_type = query_params.get('query_type', 'all')
 
@@ -301,12 +458,16 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
                 possible_processed_items.append(processed_item)
         processed_items = possible_processed_items
 
-    return processed_items
-            
+    return {
+        'items': processed_items,
+        'next_token': encode_pagination_token(last_evaluated_key) if last_evaluated_key else None
+    }
+
+
 def assigned_status(transaction_id):
     print("The transaction id is ", transaction_id)
     if transaction_id == "":
-        return {}
+        return ""
     response = table.query(
         KeyConditionExpression=Key('PARTITION_KEY').eq("CASE") & Key('SORT_KEY').eq(transaction_id)
     )
@@ -320,7 +481,18 @@ def assigned_status(transaction_id):
             return items[0]["assigned_to"]
         except Exception as e:
             print("Found an error in the retrieval of a case's email ", e)
-            return {}
+            return {}            
+
+def transform_keys(dictionary):
+    # Create a new dictionary with transformed keys
+    transformed_dict = {}
+    
+    for key, value in dictionary.items():
+        # Replace 'application' with 'processor' in the key
+        new_key = key.replace('application', 'processor')
+        transformed_dict[new_key] = value
+        
+    return transformed_dict
 
 def get_relevant_aggregates(aggregates, transaction, evaluation):
     relevant_aggregates = {}
@@ -371,16 +543,21 @@ def get_relevant_aggregates(aggregates, transaction, evaluation):
     return relevant_aggregates
 
 def response(status_code, body):
-    response_message = ""
-    if status_code == 200:
-        response_message = "Operation Successful"
-    else:
-        response_message = "Unsuccessful operation"
+    response_message = "Operation Successful" if status_code == 200 else "Unsuccessful operation"
+    
+    # Handle both paginated and non-paginated responses
+    response_data = body.get('items', []) if isinstance(body, dict) else body
+    next_token = body.get('next_token') if isinstance(body, dict) else None
+    
     body_to_send = {
         "responseCode": status_code,
         "responseMessage": response_message,
-        "data": body["items"]
+        "data": response_data,
+        "pagination": {
+            "nextToken": next_token
+        } if next_token is not None else None
     }
+    
     return {
         'statusCode': status_code,
         'body': json.dumps(body_to_send),

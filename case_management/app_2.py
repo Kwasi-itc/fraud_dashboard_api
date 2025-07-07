@@ -5,28 +5,17 @@ from boto3.dynamodb.conditions import Key
 from datetime import datetime
 from decimal import Decimal
 import uuid
-import logging
 
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
-
-# -------- structured logging -------- #
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-ALLOWED_STATUSES = {"OPEN", "IN_PROGRESS", "CLOSED"}
-# Next-status rules
-STATUS_TRANSITIONS = {
-    "OPEN": {"IN_PROGRESS", "CLOSED"},
-    "IN_PROGRESS": {"CLOSED"},
-}
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
     resource = event['resource']
     print("The event is ", event)
 
+    # Case and Report Management
     if http_method == 'POST' and resource == '/case':
         return create_case(event, context)
     if http_method == 'POST' and resource == '/report':
@@ -47,6 +36,18 @@ def lambda_handler(event, context):
         return edit_report(event, context)
     elif http_method == 'DELETE' and resource == '/report':
         return delete_report(event, context)
+        
+    # Investigator Management
+    elif http_method == 'POST' and resource == '/investigator':
+        return create_investigator(event, context)
+    elif http_method == 'GET' and resource == '/investigator':
+        return get_investigator(event, context)
+    elif http_method == 'GET' and resource == '/investigators':
+        return get_all_investigators(event, context)
+    elif http_method == 'PUT' and resource == '/investigator':
+        return update_investigator(event, context)
+    elif http_method == 'DELETE' and resource == '/investigator':
+        return delete_investigator(event, context)
     else:
         return response(400, {'message': 'Invalid endpoint'})
 
@@ -57,7 +58,6 @@ def create_case(event, context):
         transaction_id = body.get('transaction_id')
         assigned_to = body.get('assigned_to')
         status = body.get('status')
-        #status = body.get('status')
         
         if not transaction_id:
             return response(400, {'message': 'transaction_id is required'})
@@ -249,10 +249,6 @@ def get_all_case_reports(event, context):
 
 
 def update_case_status(event, context):
-    """
-    Validate and update the status / assignee of an existing case item.
-    Enforces allowable status transitions defined in `STATUS_TRANSITIONS`.
-    """
     try:
         body = json.loads(event['body'])
         print("The body is ", body)
@@ -260,30 +256,8 @@ def update_case_status(event, context):
         new_status = body.get('status')
         
         if not transaction_id or not new_status:
-            return response(400, {"message": "transaction_id and status are required"})
-
-        if new_status not in ALLOWED_STATUSES:
-            return response(400, {"message": f"Invalid status '{new_status}'"})
-
-        # Fetch current item to validate transition
-        result = table.get_item(
-            Key={"PARTITION_KEY": "CASE", "SORT_KEY": transaction_id}
-        )
-        if "Item" not in result:
-            return response(404, {"message": "Case not found"})
-
-        current_status = result["Item"].get("status", "OPEN")
-        if (
-            current_status in STATUS_TRANSITIONS
-            and new_status not in STATUS_TRANSITIONS[current_status]
-        ):
-            return response(
-                400,
-                {
-                    "message": f"Illegal transition: {current_status} -> {new_status}"
-                },
-            )
-
+            return response(400, {'message': 'transaction_id and status are required'})
+        
         table.update_item(
             Key={'PARTITION_KEY': 'CASE', 'SORT_KEY': transaction_id},
             UpdateExpression='SET #status = :status, updated_at = :updated_at',
@@ -293,8 +267,8 @@ def update_case_status(event, context):
         
         return response(200, {'message': 'Case status updated successfully'})
     except Exception as e:
-        logger.error("update_case_status error: %s", e, exc_info=True)
-        return response(500, {"message": str(e)})
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
 
 def get_case(event, context):
     try:
@@ -357,8 +331,8 @@ def get_open_cases(event, context):
             
         return response(200, {'open_cases': filtered_items})
     except Exception as e:
-        logger.error("get_open_cases error: %s", e, exc_info=True)
-        return response(500, {"message": str(e)})
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
 
 def get_closed_cases(event, context):
     try:
@@ -396,8 +370,8 @@ def get_closed_cases(event, context):
             
         return response(200, {'closed_cases': filtered_items})
     except Exception as e:
-        logger.error("get_closed_cases error: %s", e, exc_info=True)
-        return response(500, {"message": str(e)})
+        print("An error occurred ", e)
+        return response(500, {'message': str(e)})
 
 def close_case(event, context):
     try:
@@ -433,6 +407,97 @@ def close_case(event, context):
         return response(200, {'message': 'Case closed successfully'})
     except Exception as e:
         print("An error occurred ", e)
+        return response(500, {'message': str(e)})
+
+def create_investigator(event, context):
+    try:
+        body = json.loads(event['body'])
+        investigator_name = body.get('name')
+        
+        if not investigator_name:
+            return response(400, {'message': 'Investigator name is required'})
+            
+        investigator_id = str(uuid.uuid4())
+        
+        item = {
+            'PARTITION_KEY': 'INVESTIGATOR',
+            'SORT_KEY': investigator_id,
+            'name': investigator_name,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        table.put_item(Item=item)
+        
+        return response(200, {'message': 'Investigator created successfully', 'investigator_id': investigator_id})
+    except Exception as e:
+        print("An error occurred: ", e)
+        return response(500, {'message': str(e)})
+
+def get_investigator(event, context):
+    try:
+        params = event.get('queryStringParameters', {}) or {}
+        investigator_id = params.get('investigator_id')
+        
+        if not investigator_id:
+            return response(400, {'message': 'investigator_id is required'})
+            
+        result = table.get_item(Key={'PARTITION_KEY': 'INVESTIGATOR', 'SORT_KEY': investigator_id})
+        
+        if 'Item' not in result:
+            return response(404, {'message': 'Investigator not found'})
+            
+        return response(200, result['Item'])
+    except Exception as e:
+        print("An error occurred: ", e)
+        return response(500, {'message': str(e)})
+
+def get_all_investigators(event, context):
+    try:
+        result = table.query(
+            KeyConditionExpression=Key('PARTITION_KEY').eq('INVESTIGATOR')
+        )
+        
+        items = result.get('Items', [])
+        
+        return response(200, {'investigators': items})
+    except Exception as e:
+        print("An error occurred: ", e)
+        return response(500, {'message': str(e)})
+
+def update_investigator(event, context):
+    try:
+        body = json.loads(event['body'])
+        investigator_id = body.get('investigator_id')
+        investigator_name = body.get('name')
+        
+        if not investigator_id or not investigator_name:
+            return response(400, {'message': 'investigator_id and name are required'})
+            
+        table.update_item(
+            Key={'PARTITION_KEY': 'INVESTIGATOR', 'SORT_KEY': investigator_id},
+            UpdateExpression='SET #name = :name, updated_at = :updated_at',
+            ExpressionAttributeNames={'#name': 'name'},
+            ExpressionAttributeValues={':name': investigator_name, ':updated_at': datetime.now().isoformat()}
+        )
+        
+        return response(200, {'message': 'Investigator updated successfully'})
+    except Exception as e:
+        print("An error occurred: ", e)
+        return response(500, {'message': str(e)})
+
+def delete_investigator(event, context):
+    try:
+        params = event.get('queryStringParameters', {}) or {}
+        investigator_id = params.get('investigator_id')
+        
+        if not investigator_id:
+            return response(400, {'message': 'investigator_id is required'})
+            
+        table.delete_item(Key={'PARTITION_KEY': 'INVESTIGATOR', 'SORT_KEY': investigator_id})
+        
+        return response(200, {'message': 'Investigator deleted successfully'})
+    except Exception as e:
+        print("An error occurred: ", e)
         return response(500, {'message': str(e)})
 
 def response(status_code, body):
