@@ -1,11 +1,17 @@
 version: 0.2
 phases:
   install:
+    runtime-versions:
+      python: 3.11  # Specify the Python version you need
     commands: 
-      - echo "[Install phase]"
-      - pip install -r requirements.txt -t .
-      - ls
+      - echo "[Install phase] Python 3.11 runtime configured."
+      # The 'sam build' command will handle the requirements, 
+      # so the 'pip install' line is not needed here.
   build:
     commands:
-      - sam build
+      - echo "[Build phase] Starting SAM build..."
+      # The --use-container flag makes SAM build inside a Docker container 
+      # that matches the Lambda environment, ensuring consistency.
+      - sam build --use-container
+      - echo "[Build phase] SAM build completed. Starting deployment..."
       - sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name fraud-py-v1-stack --resolve-s3 --capabilities CAPABILITY_IAM
