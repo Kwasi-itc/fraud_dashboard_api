@@ -345,7 +345,6 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: '*'
   
-
   CaseManagementFunction:
     Type: AWS::Serverless::Function
     Properties:
