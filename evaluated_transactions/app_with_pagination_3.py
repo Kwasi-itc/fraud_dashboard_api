@@ -10,6 +10,41 @@ import base64
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
+# ---------------------------------------------------------------------------
+# Merchant/Product metadata look-ups
+# ---------------------------------------------------------------------------
+merchant_product_table = dynamodb.Table(os.environ['FRAUD_MERCHANT_PRODUCT_TABLE'])
+
+# In-memory cache for one-invocation reuse
+_MERCHANT_PRODUCT_CACHE = {}
+
+
+def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
+    """
+    Resolve merchant_id & product_id into human-readable names by querying
+    FraudPyV1MerchantProductNotificationTable.  Results are cached for the
+    lifetime of the Lambda invocation to minimise DynamoDB calls.
+    """
+    key = (merchant_id, product_id)
+    if key in _MERCHANT_PRODUCT_CACHE:
+        return _MERCHANT_PRODUCT_CACHE[key]
+
+    try:
+        resp = merchant_product_table.get_item(
+            Key={
+                "PK": f"MERCHANT_PRODUCT#{merchant_id}",
+                "SK": f"PRODUCT#{product_id}",
+            },
+            ProjectionExpression="merchantName, productName, merchantProductName",
+        )
+        item = resp.get("Item", {})
+    except Exception:
+        # Fail gracefully – unresolved IDs will leave name fields blank
+        item = {}
+
+    _MERCHANT_PRODUCT_CACHE[key] = item
+    return item
+
 PAGE_SIZE = 20  # Default page size
 
 def parse_key(key, account_id, application_id, merchant_id, product_id):
@@ -472,6 +507,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
             merchant_id = original_transaction['merchant_id']
             product_id = original_transaction['product_id']
             assigned_person = assigned_status(original_transaction['transaction_id'])
+            meta = get_merchant_product_data(merchant_id, product_id)
             
             processed_item = {
                 'account_ref': account_id,
@@ -484,6 +520,9 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
                 'currency': original_transaction['currency'],
                 'country': original_transaction['country'],
                 'channel': original_transaction['channel'],
+                'merchant_name': meta.get('merchantName', ''),
+                'product_name': meta.get('productName', ''),
+                'merchant_product_name': meta.get('merchantProductName', ''),
                 'evaluation': transform_keys(evaluation),
                 'assigned_to': assigned_person,
                 'relevant_aggregates': transform_aggregates(
@@ -549,6 +588,7 @@ def query_transaction_by_id(partition_key, params):
         application_id = original_transaction['application_id']
         merchant_id = original_transaction['merchant_id']
         product_id = original_transaction['product_id']
+        meta = get_merchant_product_data(merchant_id, product_id)
         
         processed_item = {
             'account_ref': account_id,
@@ -561,6 +601,9 @@ def query_transaction_by_id(partition_key, params):
             'currency': original_transaction['currency'],
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
+            'merchant_name': meta.get('merchantName', ''),
+            'product_name': meta.get('productName', ''),
+            'merchant_product_name': meta.get('merchantProductName', ''),
             'evaluation': transform_keys(evaluation),
             'relevant_aggregates': transform_aggregates(
                 processed_transaction.get('aggregates', {}),
@@ -646,6 +689,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
                 merchant_id = original_transaction['merchant_id']
                 product_id = original_transaction['product_id']
                 assigned_person = assigned_status(original_transaction['transaction_id'])
+                meta = get_merchant_product_data(merchant_id, product_id)
                 
                 processed_item = {
                     'account_ref': account_id,
@@ -658,6 +702,9 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
                     'currency': original_transaction['currency'],
                     'country': original_transaction['country'],
                     'channel': original_transaction['channel'],
+                    'merchant_name': meta.get('merchantName', ''),
+                    'product_name': meta.get('productName', ''),
+                    'merchant_product_name': meta.get('merchantProductName', ''),
                     'evaluation': transform_keys(evaluation),
                     'assigned_to': assigned_person,
                     'relevant_aggregates': transform_aggregates(

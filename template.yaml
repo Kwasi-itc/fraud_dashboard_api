@@ -12,6 +12,7 @@ Globals:
         FRAUD_LISTS_TABLE: FraudPyV1ListsTable
         FRAUD_LIMITS_TABLE: FraudPyV1LimitsTable
         FRAUD_PROCESSED_TRANSACTIONS_TABLE: FraudPyV1ProcessedTransactionsTable
+        FRAUD_MERCHANT_PRODUCT_TABLE: FraudPyV1MerchantProductNotificationTable
   Api:
     Cors:
       AllowMethods: "'*'"
