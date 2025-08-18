@@ -507,7 +507,7 @@ Resources:
             TableName: '*'
 
 # Make sure to add the necessary IAM permissions for this function to access your DynamoDB table
- Outputs:
+Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
