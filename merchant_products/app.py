@@ -21,17 +21,18 @@ def json_serial(obj):
 
 def _extract_payload(event: dict) -> dict | None:
     """
-    Support both EventBridge (*detail*) and API Gateway (*body*) payloads.
+    Extract JSON sent by API Gateway (preferred) or EventBridge.
     """
-    if isinstance(event.get("detail"), dict):  # EventBridge
-        return event["detail"]
-
-    body = event.get("body")  # API Gateway
+    body = event.get("body")
     if body:
         try:
             return json.loads(body)
         except json.JSONDecodeError:
-            pass
+            return None
+
+    if isinstance(event.get("detail"), dict):
+        return event["detail"]
+
     return None
 
 
@@ -44,6 +45,41 @@ def lambda_handler(event, context):
     the product JSON must be placed under the *detail* key.
     """
     print(f"Received event: {json.dumps(event)}")
+
+    # ---------- GET /merchant-products?merchantId={mId}&productId={pId} ----------
+    if event.get("httpMethod") == "GET":
+        qs = event.get("queryStringParameters") or {}
+        merchant_id = qs.get("merchantId")
+        product_id = qs.get("productId")
+        if not merchant_id or not product_id:
+            return {
+                "statusCode": 400,
+                "body": json.dumps("Missing merchantId or productId query parameters"),
+            }
+        try:
+            resp = table.get_item(
+                Key={
+                    "PK": f"MERCHANT_PRODUCT#{merchant_id}",
+                    "SK": f"PRODUCT#{product_id}",
+                }
+            )
+            item = resp.get("Item")
+            if not item:
+                return {
+                    "statusCode": 404,
+                    "body": json.dumps("Merchant product not found"),
+                }
+            return {
+                "statusCode": 200,
+                "body": json.dumps(item, default=json_serial),
+            }
+        except ClientError as e:
+            error_message = e.response["Error"]["Message"]
+            print(f"DynamoDB ClientError: {error_message}")
+            return {
+                "statusCode": 500,
+                "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
+            }
 
     try:
         product_data = _extract_payload(event)

@@ -13,19 +13,22 @@ table = dynamodb.Table(TABLE_NAME)
 
 def _extract_payload(event: dict) -> dict | None:
     """
-    Support both EventBridge (*detail*) and API Gateway (*body*) payloads.
+    Extract JSON sent by API Gateway (preferred) or EventBridge.
 
-    Returns None if no valid payload could be extracted.
+    For REST API calls the payload must be in *event["body"]* as JSON.
     """
-    if isinstance(event.get("detail"), dict):        # EventBridge
-        return event["detail"]
-
-    body = event.get("body")                         # API Gateway
+    # API Gateway invocation
+    body = event.get("body")
     if body:
         try:
             return json.loads(body)
         except json.JSONDecodeError:
-            pass
+            return None
+
+    # EventBridge fallback
+    if isinstance(event.get("detail"), dict):
+        return event["detail"]
+
     return None
 
 
@@ -38,6 +41,34 @@ def lambda_handler(event, context):
     the merchant JSON must be placed under the *detail* key.
     """
     print(f"Received event: {json.dumps(event)}")
+
+    # ---------- GET /merchants?id={merchantId} ----------
+    if event.get("httpMethod") == "GET":
+        merchant_id = (event.get("queryStringParameters") or {}).get("id")
+        if not merchant_id:
+            return {
+                "statusCode": 400,
+                "body": json.dumps("Missing id query parameter"),
+            }
+        try:
+            resp = table.get_item(Key={"PK": "MERCHANT_INFO", "SK": merchant_id})
+            item = resp.get("Item")
+            if not item:
+                return {
+                    "statusCode": 404,
+                    "body": json.dumps("Merchant not found"),
+                }
+            return {
+                "statusCode": 200,
+                "body": json.dumps(item, default=str),
+            }
+        except ClientError as e:
+            error_message = e.response["Error"]["Message"]
+            print(f"DynamoDB ClientError: {error_message}")
+            return {
+                "statusCode": 500,
+                "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
+            }
 
     try:
         merchant_data = _extract_payload(event)

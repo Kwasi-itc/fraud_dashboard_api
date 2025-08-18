@@ -343,6 +343,11 @@ Resources:
           Properties:
             Path: /merchants
             Method: POST
+        GetMerchant:
+          Type: Api
+          Properties:
+            Path: /merchants
+            Method: GET
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
@@ -363,6 +368,11 @@ Resources:
           Properties:
             Path: /merchant-products
             Method: POST
+        GetMerchantProduct:
+          Type: Api
+          Properties:
+            Path: /merchant-products
+            Method: GET
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
