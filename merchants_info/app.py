@@ -60,7 +60,8 @@ def lambda_handler(event, context):
                 }
             return {
                 "statusCode": 200,
-                "body": json.dumps(item, default=str),
+                # Ensure any DynamoDB sets are returned as JSON arrays
+                "body": json.dumps(item, default=list),
             }
         except ClientError as e:
             error_message = e.response["Error"]["Message"]
@@ -113,7 +114,8 @@ def lambda_handler(event, context):
         # Strip None values
         item_to_save = {k: v for k, v in item_to_save.items() if v is not None}
 
-        print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(item_to_save)}")
+        # Convert non-serialisable objects (e.g. Python set) for safe logging
+        print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(item_to_save, default=list)}")
         table.put_item(Item=item_to_save)
 
         return {
