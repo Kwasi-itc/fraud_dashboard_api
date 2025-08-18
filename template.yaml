@@ -328,6 +328,46 @@ Resources:
         - AWSLambdaSQSQueueExecutionRole
         - DynamoDBCrudPolicy:
             TableName: '*'
+  
+  MerchantsInfoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./merchants_info
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          MERCHANT_TABLE_NAME: FraudPyV1MerchantsTable
+      Events:
+        CreateOrUpdateMerchant:
+          Type: Api
+          Properties:
+            Path: /merchants
+            Method: POST
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
+  
+  MerchantProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./merchant_products
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          MERCHANT_PRODUCT_TABLE_NAME: FraudPyV1MerchantProductNotificationTable
+      Events:
+        CreateOrUpdateMerchantProduct:
+          Type: Api
+          Properties:
+            Path: /merchant-products
+            Method: POST
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaSQSQueueExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: '*'
 
   TransactionSummaryFunction:
     Type: AWS::Serverless::Function
