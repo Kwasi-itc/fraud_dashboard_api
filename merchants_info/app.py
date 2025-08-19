@@ -51,7 +51,7 @@ def lambda_handler(event, context):
                 "body": json.dumps("Missing id query parameter"),
             }
         try:
-            resp = table.get_item(Key={"PK": "MERCHANT_INFO", "SK": merchant_id})
+            resp = table.get_item(Key={"PARTITION_KEY": "MERCHANT_INFO", "SORT_KEY": merchant_id})
             item = resp.get("Item")
             if not item:
                 return {
@@ -85,8 +85,8 @@ def lambda_handler(event, context):
         merchant_id = merchant_data["id"]
 
         item_to_save = {
-            "PK": "MERCHANT_INFO",
-            "SK": merchant_id,
+            "PARTITION_KEY": "MERCHANT_INFO",
+            "SORT_KEY": merchant_id,
             "companyName": merchant_data.get("companyName"),
             "code": merchant_data.get("code"),
             "tradeName": merchant_data.get("tradeName"),

@@ -62,8 +62,8 @@ def lambda_handler(event, context):
         try:
             resp = table.get_item(
                 Key={
-                    "PK": f"MERCHANT_PRODUCT#{merchant_id}",
-                    "SK": f"PRODUCT#{product_id}",
+                    "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
+                    "SORT_KEY": f"PRODUCT#{product_id}",
                 }
             )
             item = resp.get("Item")
@@ -96,8 +96,8 @@ def lambda_handler(event, context):
         product_id = product_data["productId"]
 
         item_to_save = {
-            "PK": f"MERCHANT_PRODUCT#{merchant_id}",
-            "SK": f"PRODUCT#{product_id}",
+            "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
+            "SORT_KEY": f"PRODUCT#{product_id}",
             "merchantProductId": product_data.get("merchantProductId"),
             "merchantId": merchant_id,
             "productId": product_id,
