@@ -84,15 +84,6 @@ def lambda_handler(event, context):
 
         merchant_id = merchant_data["id"]
 
-        # Basic validation – every record must contain an *id* field
-        invalid_records = [idx for idx, rec in enumerate(merchant_records) if "id" not in rec]
-        if invalid_records:
-            msg = f"Invalid payload: missing merchant *id* at indices {invalid_records}"
-            print(msg)
-            return {
-                "statusCode": 400,
-                "body": json.dumps(msg),
-            }
 
         item = {
             "PARTITION_KEY": "MERCHANT_INFO",
