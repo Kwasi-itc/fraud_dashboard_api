@@ -16,6 +16,9 @@ table = dynamodb.Table(TABLE_NAME)
 def json_serial(obj):
     if isinstance(obj, Decimal):
         return float(obj)
+    if isinstance(obj, (set, frozenset)):
+        # Convert DynamoDB string-set to JSON array
+        return list(obj)
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
