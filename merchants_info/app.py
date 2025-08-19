@@ -2,6 +2,7 @@ import json
 import os
 import boto3
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb')
@@ -9,6 +10,12 @@ dynamodb = boto3.resource('dynamodb')
 # Get the DynamoDB table name from an environment variable for flexibility
 TABLE_NAME = os.environ.get('MERCHANT_TABLE_NAME', 'FraudPyV1MerchantsTable')
 table = dynamodb.Table(TABLE_NAME)
+
+# Second table that holds processed transactions
+PROCESSED_TABLE_NAME = os.environ.get(
+    "FRAUD_PROCESSED_TRANSACTIONS_TABLE", "FraudPyV1ProcessedTransactionsTable"
+)
+processed_table = dynamodb.Table(PROCESSED_TABLE_NAME)
 
 
 def _extract_payload(event: dict) -> dict | None:
@@ -70,6 +77,57 @@ def lambda_handler(event, context):
                 "statusCode": 500,
                 "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
             }
+
+    # ---------- DELETE /merchants?deleteAll=true ----------
+    # Removes every item whose PARTITION_KEY equals "MERCHANT_INFO"
+    if event.get("httpMethod") == "DELETE":
+        qs = event.get("queryStringParameters") or {}
+        if qs.get("deleteAll") != "true":
+            return {
+                "statusCode": 400,
+                "body": json.dumps('To delete all merchant records pass ?deleteAll=true'),
+            }
+        try:
+            deleted = 0
+            last_evaluated_key = None
+            while True:
+                scan_kwargs = {
+                    "KeyConditionExpression": Key("PARTITION_KEY").eq("MERCHANT_INFO"),
+                    "ProjectionExpression": "PARTITION_KEY, SORT_KEY",
+                }
+                if last_evaluated_key:
+                    scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+                resp = processed_table.query(**scan_kwargs)
+                items = resp.get("Items", [])
+                if not items:
+                    break
+
+                with processed_table.batch_writer() as batch:
+                    for itm in items:
+                        batch.delete_item(
+                            Key={
+                                "PARTITION_KEY": itm["PARTITION_KEY"],
+                                "SORT_KEY": itm["SORT_KEY"],
+                            }
+                        )
+                        deleted += 1
+
+                last_evaluated_key = resp.get("LastEvaluatedKey")
+                if not last_evaluated_key:
+                    break
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps(f"Deleted {deleted} merchant record(s)"),
+            }
+        except ClientError as e:
+            err_msg = e.response["Error"]["Message"]
+            print("DynamoDB ClientError while deleting:", err_msg)
+            return {"statusCode": 500, "body": json.dumps(err_msg)}
+        except Exception as ex:
+            print("Unexpected error while deleting:", str(ex))
+            return {"statusCode": 500, "body": json.dumps(str(ex))}
 
     try:
         payload = _extract_payload(event)
