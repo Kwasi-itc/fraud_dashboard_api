@@ -150,8 +150,10 @@ def lambda_handler(event, context):
             item = {k: v for k, v in item.items() if v is not None}
             items_to_save.append(item)
 
-        # Batch-write to DynamoDB (batch_writer chunks into 25-item requests)
-        with table.batch_writer() as batch:
+        # Batch-write to DynamoDB (25 items/request).  The overwrite_by_pkeys
+        # flag prevents “Provided list of item keys contains duplicates” errors
+        # when duplicate composite keys are present in the same batch.
+        with table.batch_writer(overwrite_by_pkeys=["PARTITION_KEY", "SORT_KEY"]) as batch:
             for itm in items_to_save:
                 print(
                     f"Saving to DynamoDB table {TABLE_NAME}: "

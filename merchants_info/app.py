@@ -193,8 +193,10 @@ def lambda_handler(event, context):
             item = {k: v for k, v in item.items() if v is not None}
             items_to_save.append(item)
 
-        # Batch-write (batch_writer chunks into 25-item API calls)
-        with table.batch_writer() as batch:
+        # Batch-write (batch_writer chunks into 25-item API calls) – if the same
+        # partition/sort key appears twice in the payload we overwrite instead of
+        # triggering a “duplicate keys” validation error from DynamoDB.
+        with table.batch_writer(overwrite_by_pkeys=["PARTITION_KEY", "SORT_KEY"]) as batch:
             for itm in items_to_save:
                 print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(itm, default=list)}")
                 batch.put_item(Item=itm)
