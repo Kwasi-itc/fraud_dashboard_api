@@ -85,53 +85,84 @@ def lambda_handler(event, context):
             }
 
     try:
-        product_data = _extract_payload(event)
+        payload = _extract_payload(event)
 
-        if not product_data or "merchantId" not in product_data or "productId" not in product_data:
-            msg = "Invalid payload: missing merchantId or productId"
+        if not payload:
+            msg = "Invalid payload: request body must be valid JSON"
             print(msg)
             return {"statusCode": 400, "body": json.dumps(msg)}
 
-        merchant_id = product_data["merchantId"]
-        product_id = product_data["productId"]
+        # Accept a single object or an array of objects (max 1000 per request)
+        product_records = payload if isinstance(payload, list) else [payload]
 
-        item_to_save = {
-            "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
-            "SORT_KEY": f"PRODUCT#{product_id}",
-            "merchantProductId": product_data.get("merchantProductId"),
-            "merchantId": merchant_id,
-            "productId": product_id,
-            "merchantProductName": product_data.get("name"),
-            "description": product_data.get("description"),
-            "productName": product_data.get("productName"),
-            "productCode": product_data.get("productCode"),
-            "merchantProductCode": product_data.get("merchantProductCode"),
-            "merchantName": product_data.get("merchantName"),
-            "merchantCode": product_data.get("merchantCode"),
-            "canSettle": product_data.get("canSettle"),
-            "status": product_data.get("status"),
-            "alias": product_data.get("alias"),
-            "serviceCode": product_data.get("serviceCode"),
-            "configuration": product_data.get("configuration"),
-            "createdAt": product_data.get("createdAt"),
-            "updatedAt": event.get("time") or product_data.get("updatedAt"),
-        }
+        if len(product_records) > 1000:
+            return {
+                "statusCode": 400,
+                "body": json.dumps("Maximum 1000 product records allowed per request"),
+            }
 
-        tags = product_data.get("tags")
-        if tags:
-            item_to_save["tags"] = set(tags)
+        # Validate mandatory keys for every record
+        invalid_idx = [
+            idx
+            for idx, rec in enumerate(product_records)
+            if "merchantId" not in rec or "productId" not in rec
+        ]
+        if invalid_idx:
+            msg = (
+                "Invalid payload: missing merchantId or productId "
+                f"at indices {invalid_idx}"
+            )
+            print(msg)
+            return {"statusCode": 400, "body": json.dumps(msg)}
 
-        item_to_save = {k: v for k, v in item_to_save.items() if v is not None}
+        items_to_save: list[dict] = []
+        for rec in product_records:
+            merchant_id = rec["merchantId"]
+            product_id = rec["productId"]
 
-        print(
-            f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(item_to_save, default=json_serial)}"
-        )
-        table.put_item(Item=item_to_save)
+            item = {
+                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
+                "SORT_KEY": f"PRODUCT#{product_id}",
+                "merchantProductId": rec.get("merchantProductId"),
+                "merchantId": merchant_id,
+                "productId": product_id,
+                "merchantProductName": rec.get("name"),
+                "description": rec.get("description"),
+                "productName": rec.get("productName"),
+                "productCode": rec.get("productCode"),
+                "merchantProductCode": rec.get("merchantProductCode"),
+                "merchantName": rec.get("merchantName"),
+                "merchantCode": rec.get("merchantCode"),
+                "canSettle": rec.get("canSettle"),
+                "status": rec.get("status"),
+                "alias": rec.get("alias"),
+                "serviceCode": rec.get("serviceCode"),
+                "configuration": rec.get("configuration"),
+                "createdAt": rec.get("createdAt"),
+                "updatedAt": event.get("time") or rec.get("updatedAt"),
+            }
+
+            tags = rec.get("tags")
+            if tags:
+                item["tags"] = set(tags)
+
+            # Strip None values
+            item = {k: v for k, v in item.items() if v is not None}
+            items_to_save.append(item)
+
+        # Batch-write to DynamoDB (batch_writer chunks into 25-item requests)
+        with table.batch_writer() as batch:
+            for itm in items_to_save:
+                print(
+                    f"Saving to DynamoDB table {TABLE_NAME}: "
+                    f"{json.dumps(itm, default=json_serial)}"
+                )
+                batch.put_item(Item=itm)
 
         return {
             "statusCode": 200,
             "body": json.dumps(
-                f"Successfully processed merchant product {product_data.get('merchantProductId')}"
+                f"Successfully processed {len(items_to_save)} merchant product record(s)"
             ),
         }
 
