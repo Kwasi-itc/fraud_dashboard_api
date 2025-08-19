@@ -12,7 +12,7 @@ Globals:
         FRAUD_LISTS_TABLE: FraudPyV1ListsTable
         FRAUD_LIMITS_TABLE: FraudPyV1LimitsTable
         FRAUD_PROCESSED_TRANSACTIONS_TABLE: FraudPyV1ProcessedTransactionsTable
-        FRAUD_MERCHANT_PRODUCT_TABLE: FraudPyV1MerchantProductNotificationTable
+        FRAUD_MERCHANT_PRODUCT_TABLE: FraudPyV1ProcessedTransactionsTable
   Api:
     Cors:
       AllowMethods: "'*'"
@@ -336,7 +336,7 @@ Resources:
       Handler: app.lambda_handler
       Environment:
         Variables:
-          MERCHANT_TABLE_NAME: FraudPyV1MerchantsTable
+          MERCHANT_TABLE_NAME: FraudPyV1ProcessedTransactionsTable
       Events:
         CreateOrUpdateMerchant:
           Type: Api
@@ -361,7 +361,7 @@ Resources:
       Handler: app.lambda_handler
       Environment:
         Variables:
-          MERCHANT_PRODUCT_TABLE_NAME: FraudPyV1MerchantProductNotificationTable
+          MERCHANT_PRODUCT_TABLE_NAME: FraudPyV1ProcessedTransactionsTable
       Events:
         CreateOrUpdateMerchantProduct:
           Type: Api
