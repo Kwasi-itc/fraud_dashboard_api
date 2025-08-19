@@ -348,6 +348,11 @@ Resources:
           Properties:
             Path: /merchants
             Method: GET
+        DeleteMerchants:
+          Type: Api
+          Properties:
+            Path: /merchants
+            Method: DELETE
       Policies:
         - AWSXrayWriteOnlyAccess
         - AWSLambdaSQSQueueExecutionRole
