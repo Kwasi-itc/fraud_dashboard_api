@@ -72,55 +72,74 @@ def lambda_handler(event, context):
             }
 
     try:
-        merchant_data = _extract_payload(event)
+        payload = _extract_payload(event)
 
-        if not merchant_data or "id" not in merchant_data:
-            msg = "Invalid payload: missing merchant *id*"
+        if not payload:
+            msg = "Invalid payload: request body must be valid JSON"
             print(msg)
             return {
                 "statusCode": 400,
                 "body": json.dumps(msg),
             }
 
-        merchant_id = merchant_data["id"]
+        # Normalise to list so we can process single- or multi-merchant requests uniformly
+        merchant_records = payload if isinstance(payload, list) else [payload]
 
-        item_to_save = {
-            "PARTITION_KEY": "MERCHANT_INFO",
-            "SORT_KEY": merchant_id,
-            "companyName": merchant_data.get("companyName"),
-            "code": merchant_data.get("code"),
-            "tradeName": merchant_data.get("tradeName"),
-            "alias": merchant_data.get("alias"),
-            "country": merchant_data.get("country"),
-            "tier": merchant_data.get("tier"),
-            "typeOfCompany": merchant_data.get("typeOfCompany"),
-            "status": merchant_data.get("status"),
-            "companyLogo": merchant_data.get("companyLogo"),
-            "companyRegistrationNumber": merchant_data.get("companyRegistrationNumber"),
-            "vatRegistrationNumber": merchant_data.get("vatRegistrationNumber"),
-            "dateOfIncorporation": merchant_data.get("dateOfIncorporation"),
-            "dateOfCommencement": merchant_data.get("dateOfCommencement"),
-            "taxIdentificationNumber": merchant_data.get("taxIdentificationNumber"),
-            "createdAt": merchant_data.get("createdAt"),
-            "updatedAt": merchant_data.get("updatedAt"),
-            "EntityType": "Merchant",
-        }
+        # Basic validation – every record must contain an *id* field
+        invalid_records = [idx for idx, rec in enumerate(merchant_records) if "id" not in rec]
+        if invalid_records:
+            msg = f"Invalid payload: missing merchant *id* at indices {invalid_records}"
+            print(msg)
+            return {
+                "statusCode": 400,
+                "body": json.dumps(msg),
+            }
 
-        # Handle optional tags (DynamoDB string-set cannot be empty)
-        tags = merchant_data.get("tags")
-        if tags:
-            item_to_save["tags"] = set(tags)
+        items_to_save = []
+        for merchant_data in merchant_records:
+            merchant_id = merchant_data["id"]
 
-        # Strip None values
-        item_to_save = {k: v for k, v in item_to_save.items() if v is not None}
+            item = {
+                "PARTITION_KEY": "MERCHANT_INFO",
+                "SORT_KEY": merchant_id,
+                "companyName": merchant_data.get("companyName"),
+                "code": merchant_data.get("code"),
+                "tradeName": merchant_data.get("tradeName"),
+                "alias": merchant_data.get("alias"),
+                "country": merchant_data.get("country"),
+                "tier": merchant_data.get("tier"),
+                "typeOfCompany": merchant_data.get("typeOfCompany"),
+                "status": merchant_data.get("status"),
+                "companyLogo": merchant_data.get("companyLogo"),
+                "companyRegistrationNumber": merchant_data.get("companyRegistrationNumber"),
+                "vatRegistrationNumber": merchant_data.get("vatRegistrationNumber"),
+                "dateOfIncorporation": merchant_data.get("dateOfIncorporation"),
+                "dateOfCommencement": merchant_data.get("dateOfCommencement"),
+                "taxIdentificationNumber": merchant_data.get("taxIdentificationNumber"),
+                "createdAt": merchant_data.get("createdAt"),
+                "updatedAt": merchant_data.get("updatedAt"),
+                "EntityType": "Merchant",
+            }
 
-        # Convert non-serialisable objects (e.g. Python set) for safe logging
-        print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(item_to_save, default=list)}")
-        table.put_item(Item=item_to_save)
+            tags = merchant_data.get("tags")
+            if tags:
+                item["tags"] = set(tags)
+
+            # Remove None values
+            item = {k: v for k, v in item.items() if v is not None}
+            items_to_save.append(item)
+
+        # Batch-write to DynamoDB (handles up to 25 items per request)
+        with table.batch_writer() as batch:
+            for itm in items_to_save:
+                print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(itm, default=list)}")
+                batch.put_item(Item=itm)
 
         return {
             "statusCode": 200,
-            "body": json.dumps(f"Successfully processed merchant {merchant_id}"),
+            "body": json.dumps(
+                f"Successfully processed {len(items_to_save)} merchant record(s)"
+            ),
         }
 
     except ClientError as e:
