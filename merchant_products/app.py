@@ -95,10 +95,10 @@ def lambda_handler(event, context):
         # Accept a single object or an array of objects (max 1000 per request)
         product_records = payload if isinstance(payload, list) else [payload]
 
-        if len(product_records) > 1000:
+        if len(product_records) > 5000:
             return {
                 "statusCode": 400,
-                "body": json.dumps("Maximum 1000 product records allowed per request"),
+                "body": json.dumps("Maximum 5000 product records allowed per request"),
             }
 
         # Validate mandatory keys for every record
