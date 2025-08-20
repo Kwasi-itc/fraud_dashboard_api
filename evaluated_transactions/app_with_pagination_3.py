@@ -69,10 +69,9 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
                     "PARTITION_KEY": "MERCHANT_PRODUCT",
                     "SORT_KEY": product_id,
                 },
-                ProjectionExpression="productName, merchantProductName",
+                ProjectionExpression="merchantProductName",
             )
             item = resp.get("Item", {}) or {}
-            result["productName"] = item.get("productName", "")
             result["merchantProductName"] = item.get("merchantProductName", "")
         except Exception as err:
             print("Error fetching merchant product info:", err)
@@ -559,7 +558,6 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
                 'country': original_transaction['country'],
                 'channel': original_transaction['channel'],
                 'merchant_name': meta.get('merchantName', ''),
-                'product_name': meta.get('productName', ''),
                 'merchant_product_name': meta.get('merchantProductName', ''),
                 'evaluation': transform_keys(evaluation),
                 'assigned_to': assigned_person,
@@ -640,7 +638,6 @@ def query_transaction_by_id(partition_key, params):
             'country': original_transaction['country'],
             'channel': original_transaction['channel'],
             'merchant_name': meta.get('merchantName', ''),
-            'product_name': meta.get('productName', ''),
             'merchant_product_name': meta.get('merchantProductName', ''),
             'evaluation': transform_keys(evaluation),
             'relevant_aggregates': transform_aggregates(
@@ -741,7 +738,6 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
                     'country': original_transaction['country'],
                     'channel': original_transaction['channel'],
                     'merchant_name': meta.get('merchantName', ''),
-                    'product_name': meta.get('productName', ''),
                     'merchant_product_name': meta.get('merchantProductName', ''),
                     'evaluation': transform_keys(evaluation),
                     'assigned_to': assigned_person,
