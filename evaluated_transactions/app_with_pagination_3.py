@@ -61,16 +61,16 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     # 2. Fetch product names for this merchant/product pair
     # ------------------------------------------------------------------ #
     try:
-        resp = merchant_product_table.get_item(
-            Key={
-                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
-                "SORT_KEY": f"PRODUCT#{product_id}",
-            },
+        resp = merchant_product_table.query(
+            KeyConditionExpression=Key("PARTITION_KEY").eq("MERCHANT_PRODUCT"),
+            FilterExpression=Attr("merchantId").eq(merchant_id) & Attr("productId").eq(product_id),
             ProjectionExpression="productName, merchantProductName",
+            Limit=1
         )
-        item = resp.get("Item", {}) or {}
-        result["productName"] = item.get("productName", "")
-        result["merchantProductName"] = item.get("merchantProductName", "")
+        items = resp.get("Items", [])
+        if items:
+            result["productName"] = items[0].get("productName", "")
+            result["merchantProductName"] = items[0].get("merchantProductName", "")
     except Exception as err:
         print("Error fetching merchant product info:", err)
 

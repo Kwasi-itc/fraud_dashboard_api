@@ -52,18 +52,17 @@ def lambda_handler(event, context):
     # ---------- GET /merchant-products?merchantId={mId}&productId={pId} ----------
     if event.get("httpMethod") == "GET":
         qs = event.get("queryStringParameters") or {}
-        merchant_id = qs.get("merchantId")
-        product_id = qs.get("productId")
-        if not merchant_id or not product_id:
+        merchant_product_id = qs.get("merchantProductId")
+        if not merchant_product_id:
             return {
                 "statusCode": 400,
-                "body": json.dumps("Missing merchantId or productId query parameters"),
+                "body": json.dumps("Missing merchantProductId query parameter"),
             }
         try:
             resp = table.get_item(
                 Key={
-                    "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
-                    "SORT_KEY": f"PRODUCT#{product_id}",
+                    "PARTITION_KEY": "MERCHANT_PRODUCT",
+                    "SORT_KEY": merchant_product_id,
                 }
             )
             item = resp.get("Item")
@@ -105,7 +104,9 @@ def lambda_handler(event, context):
         invalid_idx = [
             idx
             for idx, rec in enumerate(product_records)
-            if "merchantId" not in rec or "productId" not in rec
+            if "merchantProductId" not in rec
+               or "merchantId" not in rec
+               or "productId" not in rec
         ]
         if invalid_idx:
             msg = (
@@ -121,9 +122,9 @@ def lambda_handler(event, context):
             product_id = rec["productId"]
 
             item = {
-                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
-                "SORT_KEY": f"PRODUCT#{product_id}",
-                "merchantProductId": rec.get("merchantProductId"),
+                "PARTITION_KEY": "MERCHANT_PRODUCT",
+                "SORT_KEY": rec["merchantProductId"],
+                "merchantProductId": rec["merchantProductId"],
                 "merchantId": merchant_id,
                 "productId": product_id,
                 "merchantProductName": rec.get("name"),
