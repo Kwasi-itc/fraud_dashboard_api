@@ -13,7 +13,7 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 # ---------------------------------------------------------------------------
 # Merchant/Product metadata look-ups
 # ---------------------------------------------------------------------------
-merchant_product_table = dynamodb.Table(os.environ['FRAUD_MERCHANT_PRODUCT_TABLE'])
+merchant_product_table = dynamodb.Table(os.environ['FraudPyV1ProcessedTransactionsTable'])
 
 # In-memory cache for one-invocation reuse
 _MERCHANT_PRODUCT_CACHE = {}
