@@ -13,7 +13,8 @@ table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 # ---------------------------------------------------------------------------
 # Merchant/Product metadata look-ups
 # ---------------------------------------------------------------------------
-merchant_product_table = dynamodb.Table(os.environ['FraudPyV1ProcessedTransactionsTable'])
+# Re-use the same processed-transactions table for metadata look-ups
+merchant_product_table = table
 
 # In-memory cache for one-invocation reuse
 _MERCHANT_PRODUCT_CACHE = {}
@@ -21,29 +22,61 @@ _MERCHANT_PRODUCT_CACHE = {}
 
 def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     """
-    Resolve merchant_id & product_id into human-readable names by querying
-    FraudPyV1MerchantProductNotificationTable.  Results are cached for the
-    lifetime of the Lambda invocation to minimise DynamoDB calls.
+    Resolve *merchant_id* and *product_id* into human-readable names by querying
+    FraudPyV1ProcessedTransactionsTable.
+
+    1. merchantName  ← companyName field of the MERCHANT_INFO item  
+       Key:  PARTITION_KEY = "MERCHANT_INFO",            SORT_KEY = <merchant_id>
+
+    2. productName & merchantProductName  ← PRODUCT item under the merchant  
+       Key:  PARTITION_KEY = "MERCHANT_PRODUCT#<merchant_id>",  
+             SORT_KEY      = "PRODUCT#<product_id>"
+
+    Results are cached for the lifetime of the Lambda invocation to minimise
+    DynamoDB calls.
     """
     key = (merchant_id, product_id)
     if key in _MERCHANT_PRODUCT_CACHE:
         return _MERCHANT_PRODUCT_CACHE[key]
 
+    result: dict = {}
+
+    # ------------------------------------------------------------------ #
+    # 1. Fetch merchant (company) name
+    # ------------------------------------------------------------------ #
     try:
         resp = merchant_product_table.get_item(
             Key={
-                "PK": f"MERCHANT_PRODUCT#{merchant_id}",
-                "SK": f"PRODUCT#{product_id}",
+                "PARTITION_KEY": "MERCHANT_INFO",
+                "SORT_KEY": merchant_id,
             },
-            ProjectionExpression="merchantName, productName, merchantProductName",
+            ProjectionExpression="companyName",
         )
-        item = resp.get("Item", {})
-    except Exception:
-        # Fail gracefully – unresolved IDs will leave name fields blank
-        item = {}
+        result["merchantName"] = resp.get("Item", {}).get("companyName", "")
+    except Exception as err:
+        # Fail gracefully but log for debugging
+        print("Error fetching merchant info:", err)
 
-    _MERCHANT_PRODUCT_CACHE[key] = item
-    return item
+    # ------------------------------------------------------------------ #
+    # 2. Fetch product names for this merchant/product pair
+    # ------------------------------------------------------------------ #
+    try:
+        resp = merchant_product_table.get_item(
+            Key={
+                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
+                "SORT_KEY": f"PRODUCT#{product_id}",
+            },
+            ProjectionExpression="productName, merchantProductName",
+        )
+        item = resp.get("Item", {}) or {}
+        result["productName"] = item.get("productName", "")
+        result["merchantProductName"] = item.get("merchantProductName", "")
+    except Exception as err:
+        print("Error fetching merchant product info:", err)
+
+    # Cache and return
+    _MERCHANT_PRODUCT_CACHE[key] = result
+    return result
 
 PAGE_SIZE = 20  # Default page size
 
