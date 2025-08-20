@@ -9,9 +9,12 @@ Globals:
     Runtime: python3.11
     Environment:
       Variables:
-        FRAUD_LISTS_TABLE: !ImportValue fraud-service-FraudPyV1ListsTable
-        FRAUD_LIMITS_TABLE: !ImportValue fraud-service-FraudPyV1LimitsTable
-        FRAUD_PROCESSED_TRANSACTIONS_TABLE: !ImportValue fraud-service-FraudPyV1ProcessedTransactionsTable
+        FRAUD_LISTS_TABLE:
+          Fn::ImportValue: fraud-service-FraudPyV1ListsTable
+        FRAUD_LIMITS_TABLE:
+          Fn::ImportValue: fraud-service-FraudPyV1LimitsTable
+        FRAUD_PROCESSED_TRANSACTIONS_TABLE:
+          Fn::ImportValue: fraud-service-FraudPyV1ProcessedTransactionsTable
   Api:
     Cors:
       AllowMethods: "'*'"
@@ -515,4 +518,5 @@ Resources:
 Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Value:
+      Fn::Sub: "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
