@@ -3,6 +3,7 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
+from typing import Optional, List
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb')
@@ -18,7 +19,7 @@ PROCESSED_TABLE_NAME = os.environ.get(
 processed_table = dynamodb.Table(PROCESSED_TABLE_NAME)
 
 
-def _extract_payload(event: dict) -> dict | None:
+def _extract_payload(event: dict) -> Optional[dict]:
     """
     Extract JSON sent by API Gateway (preferred) or EventBridge.
 
@@ -159,7 +160,7 @@ def lambda_handler(event, context):
                 "body": json.dumps(msg),
             }
 
-        items_to_save: list[dict] = []
+        items_to_save: List[dict] = []
         for rec in merchant_records:
             merchant_id = rec["id"]
 

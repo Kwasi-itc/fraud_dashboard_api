@@ -3,6 +3,7 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 from decimal import Decimal
+from typing import Optional, List
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource("dynamodb")
@@ -22,7 +23,7 @@ def json_serial(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-def _extract_payload(event: dict) -> dict | None:
+def _extract_payload(event: dict) -> Optional[dict]:
     """
     Extract JSON sent by API Gateway (preferred) or EventBridge.
     """
@@ -116,7 +117,7 @@ def lambda_handler(event, context):
             print(msg)
             return {"statusCode": 400, "body": json.dumps(msg)}
 
-        items_to_save: list[dict] = []
+        items_to_save: List[dict] = []
         for rec in product_records:
             merchant_id = rec["merchantId"]
             product_id = rec["productId"]
