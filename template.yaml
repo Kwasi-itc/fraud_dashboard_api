@@ -9,10 +9,9 @@ Globals:
     Runtime: python3.11
     Environment:
       Variables:
-        FRAUD_LISTS_TABLE: FraudPyV1ListsTable
-        FRAUD_LIMITS_TABLE: FraudPyV1LimitsTable
-        FRAUD_PROCESSED_TRANSACTIONS_TABLE: FraudPyV1ProcessedTransactionsTable
-        FRAUD_MERCHANT_PRODUCT_TABLE: FraudPyV1ProcessedTransactionsTable
+        FRAUD_LISTS_TABLE: !ImportValue fraud-service-FraudPyV1ListsTable
+        FRAUD_LIMITS_TABLE: !ImportValue fraud-service-FraudPyV1LimitsTable
+        FRAUD_PROCESSED_TRANSACTIONS_TABLE: !ImportValue fraud-service-FraudPyV1ProcessedTransactionsTable
   Api:
     Cors:
       AllowMethods: "'*'"
@@ -512,8 +511,8 @@ Resources:
             TableName: '*'
 
 # Make sure to add the necessary IAM permissions for this function to access your DynamoDB table
+
 Outputs:
   ApiURL:
     Description: "API Gateway endpoint URL for Prod stage"
-    Value:
-      Fn::Sub: "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

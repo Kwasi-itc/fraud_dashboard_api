@@ -1,19 +1,24 @@
 version: 0.2
 phases:
   install:
-    runtime-versions:
-      python: 3.11  # Specify the Python version you need
     commands: 
-      - echo "[Install phase] Python 3.11 runtime configured."
-      - echo "Installing AWS SAM CLI..."
-      # Install SAM CLI to make it available in the new Python 3.11 environment
-      - pip install aws-sam-cli
-      - echo "SAM CLI installed."
+      - echo "[Install phase]"
+      - pip install -r requirements.txt -t .
+      - ls
+  pre_build:
+    commands: 
+    # null
   build:
     commands:
-      - echo "[Build phase] Starting SAM build..."
-      # The --use-container flag makes SAM build inside a Docker container 
-      # that matches the Lambda environment, ensuring consistency.
-      - sam build --use-container
-      - echo "[Build phase] SAM build completed. Starting deployment..."
-      - sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name fraud-py-v1-stack --resolve-s3 --capabilities CAPABILITY_IAM
+      - echo "Starting SAM packaging `date` in `pwd`"
+      - aws cloudformation package --template-file template.yaml --s3-bucket $BUILD_OUTPUT_BUCKET --output-template-file packaged.yaml
+  post_build:
+    commands:
+      - echo "SAM packaging completed on `date`"
+artifacts:
+  files:
+    - packaged.yaml
+  discard-paths: 'yes'
+cache:
+  paths: 
+  # null
