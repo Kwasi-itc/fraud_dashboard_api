@@ -69,10 +69,14 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
                     "PARTITION_KEY": "MERCHANT_PRODUCT",
                     "SORT_KEY": product_id,
                 },
-                ProjectionExpression="merchantProductName",
+                ProjectionExpression="merchantProductName, merchantName",
             )
             item = resp.get("Item", {}) or {}
             result["merchantProductName"] = item.get("merchantProductName", "")
+            # If companyName lookup failed previously, fall back to the
+            # merchantName contained in the product record.
+            if not result.get("merchantName"):
+                result["merchantName"] = item.get("merchantName", "")
         except Exception as err:
             print("Error fetching merchant product info:", err)
     except Exception as err:
