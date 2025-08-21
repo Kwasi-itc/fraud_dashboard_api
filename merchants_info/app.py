@@ -59,7 +59,12 @@ def lambda_handler(event, context):
                 "body": json.dumps("Missing id query parameter"),
             }
         try:
-            resp = table.get_item(Key={"PARTITION_KEY": "MERCHANT_INFO", "SORT_KEY": merchant_id})
+            # Use strong consistency to guarantee we can read the item
+            # immediately after it was written.
+            resp = table.get_item(
+                Key={"PARTITION_KEY": "MERCHANT_INFO", "SORT_KEY": merchant_id},
+                ConsistentRead=True,
+            )
             item = resp.get("Item")
             if not item:
                 return {
