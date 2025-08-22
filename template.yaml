@@ -336,9 +336,6 @@ Resources:
     Properties:
       CodeUri: ./merchants_info
       Handler: app.lambda_handler
-      Environment:
-        Variables:
-          MERCHANT_TABLE_NAME: FraudPyV1ProcessedTransactionsTable
       Events:
         CreateOrUpdateMerchant:
           Type: Api
@@ -366,9 +363,6 @@ Resources:
     Properties:
       CodeUri: ./merchant_products
       Handler: app.lambda_handler
-      Environment:
-        Variables:
-          MERCHANT_PRODUCT_TABLE_NAME: FraudPyV1ProcessedTransactionsTable
       Events:
         CreateOrUpdateMerchantProduct:
           Type: Api

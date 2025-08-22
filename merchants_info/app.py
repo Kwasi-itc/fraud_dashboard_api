@@ -9,14 +9,7 @@ from typing import Optional, List
 dynamodb = boto3.resource('dynamodb')
 
 # Get the DynamoDB table name from an environment variable for flexibility
-TABLE_NAME = os.environ.get('MERCHANT_TABLE_NAME', 'FraudPyV1MerchantsTable')
-table = dynamodb.Table(TABLE_NAME)
-
-# Second table that holds processed transactions
-PROCESSED_TABLE_NAME = os.environ.get(
-    "FRAUD_PROCESSED_TRANSACTIONS_TABLE", "FraudPyV1ProcessedTransactionsTable"
-)
-processed_table = dynamodb.Table(PROCESSED_TABLE_NAME)
+table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
 
 def _extract_payload(event: dict) -> Optional[dict]:

@@ -10,13 +10,7 @@ import base64
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
 
-MERCHANT_TABLE = os.environ.get('MERCHANT_TABLE_NAME', 'FraudPyV1MerchantsTable')
-merchant_info_table = dynamodb.Table(MERCHANT_TABLE)
-# ---------------------------------------------------------------------------
-# Merchant/Product metadata look-ups
-# ---------------------------------------------------------------------------
-# Re-use the same processed-transactions table for metadata look-ups
-merchant_product_table = table
+
 
 # In-memory cache for one-invocation reuse
 _MERCHANT_PRODUCT_CACHE = {}
@@ -48,7 +42,7 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     # 1. Fetch merchant (company) name
     # ------------------------------------------------------------------ #
     try:
-        resp = merchant_info_table.get_item(
+        resp = table.get_item(
             Key={
                 "PARTITION_KEY": "MERCHANT_INFO",
                 "SORT_KEY": merchant_id,
@@ -67,7 +61,7 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
         # With the updated table design the SORT_KEY is simply *product_id*,
         # so we can fetch the record directly without a filter expression.
         try:
-            resp = merchant_product_table.get_item(
+            resp = table.get_item(
                 Key={
                     "PARTITION_KEY": "MERCHANT_PRODUCT",
                     "SORT_KEY": product_id,
