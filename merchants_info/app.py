@@ -52,37 +52,65 @@ def lambda_handler(event, context):
 
     # ---------- GET /merchants?id={merchantId} ----------
     if event.get("httpMethod") == "GET":
-        merchant_id = (event.get("queryStringParameters") or {}).get("id")
-        if not merchant_id:
-            return {
-                "statusCode": 400,
-                "body": json.dumps("Missing id query parameter"),
-            }
-        try:
-            # Use strong consistency to guarantee we can read the item
-            # immediately after it was written.
-            resp = table.get_item(
-                Key={"PARTITION_KEY": "MERCHANT_INFO", "SORT_KEY": merchant_id},
-                ConsistentRead=True,
-            )
-            item = resp.get("Item")
-            if not item:
+        qs = event.get("queryStringParameters") or {}
+        merchant_id = qs.get("id")
+
+        # ---------- GET /merchants?id={merchantId} ----------
+        if merchant_id:
+            try:
+                resp = table.get_item(
+                    Key={"PARTITION_KEY": "MERCHANT_INFO", "SORT_KEY": merchant_id},
+                    ConsistentRead=True,
+                )
+                item = resp.get("Item")
+                if not item:
+                    return {
+                        "statusCode": 404,
+                        "body": json.dumps("Merchant not found"),
+                    }
                 return {
-                    "statusCode": 404,
-                    "body": json.dumps("Merchant not found"),
+                    "statusCode": 200,
+                    # Ensure any DynamoDB sets are returned as JSON arrays
+                    "body": json.dumps(item, default=list),
                 }
-            return {
-                "statusCode": 200,
-                # Ensure any DynamoDB sets are returned as JSON arrays
-                "body": json.dumps(item, default=list),
-            }
-        except ClientError as e:
-            error_message = e.response["Error"]["Message"]
-            print(f"DynamoDB ClientError: {error_message}")
-            return {
-                "statusCode": 500,
-                "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
-            }
+            except ClientError as e:
+                error_message = e.response["Error"]["Message"]
+                print(f"DynamoDB ClientError: {error_message}")
+                return {
+                    "statusCode": 500,
+                    "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
+                }
+
+        # ---------- GET /merchants?all=true ----------
+        if qs.get("all") == "true":
+            try:
+                resp = table.query(
+                    KeyConditionExpression=Key("PARTITION_KEY").eq("MERCHANT_INFO"),
+                    Limit=100,
+                    ConsistentRead=True,
+                )
+                items = resp.get("Items", [])
+                print(f"Retrieved {len(items)} merchant record(s) (logging up to 100):")
+                for itm in items[:100]:
+                    print(json.dumps(itm, default=list))
+
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps(items, default=list),
+                }
+            except ClientError as e:
+                error_message = e.response["Error"]["Message"]
+                print(f"DynamoDB ClientError: {error_message}")
+                return {
+                    "statusCode": 500,
+                    "body": json.dumps(f"Error retrieving from DynamoDB: {error_message}"),
+                }
+
+        # No recognised query parameters supplied
+        return {
+            "statusCode": 400,
+            "body": json.dumps("Missing 'id' query parameter or 'all=true'"),
+        }
 
     # ---------- DELETE /merchants?deleteAll=true ----------
     # Removes every item whose PARTITION_KEY equals "MERCHANT_INFO"
@@ -203,8 +231,10 @@ def lambda_handler(event, context):
         # partition/sort key appears twice in the payload we overwrite instead of
         # triggering a “duplicate keys” validation error from DynamoDB.
         with table.batch_writer(overwrite_by_pkeys=["PARTITION_KEY", "SORT_KEY"]) as batch:
-            for itm in items_to_save:
-                print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(itm, default=list)}")
+            for idx, itm in enumerate(items_to_save):
+                # Log only the first 5 records to avoid excessive CloudWatch noise
+                if idx < 5:
+                    print(f"Saving to DynamoDB table {TABLE_NAME}: {json.dumps(itm, default=list)}")
                 batch.put_item(Item=itm)
 
         return {
