@@ -499,9 +499,16 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         total_records = token_metadata['total_records']
         per_page = token_metadata['per_page']
         print(f"Using token metadata: page={current_page}, total_records={total_records}")
-    elif page == 1:
-        # Only get total count on first page without token
-        total_records = get_total_count(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type)
+    else:
+        # Calculate total count when it was not supplied via the pagination token
+        total_records = get_total_count(
+            partition_key,
+            start_timestamp,
+            end_timestamp,
+            query_params,
+            channel,
+            query_type,
+        )
     
     # Build query parameters
     query_kwargs = {
@@ -667,9 +674,15 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
         current_page = token_metadata['page']
         total_records = token_metadata['total_records']
         per_page = token_metadata['per_page']
-    elif page == 1:
-        # Only get total count on first page without token
-        total_records = get_entity_list_total_count(partition_key, start_timestamp, end_timestamp, entity_type, channel)
+    else:
+        # Calculate total count when it was not supplied via the pagination token
+        total_records = get_entity_list_total_count(
+            partition_key,
+            start_timestamp,
+            end_timestamp,
+            entity_type,
+            channel,
+        )
     
     # Build query parameters
     query_kwargs = {
