@@ -123,9 +123,19 @@ def update_list_type(list_type, updates):
         )
         
         if 'Item' not in get_response:
-            return False, f"List type '{list_type}' does not exist"
-        
-        current_item = get_response['Item']
+            # If the list type is reserved we allow a *lazy-create* so that
+            # clients can “update” a reserved list type even when a definition
+            # has not been inserted yet (typical right after a fresh deploy).
+            if list_type in RESERVED_LIST_TYPES:
+                current_item = {
+                    'PARTITION_KEY': LIST_TYPE_DEFINITION_PK,
+                    'SORT_KEY': list_type,
+                    'created_at': str(datetime.now())
+                }
+            else:
+                return False, f"List type '{list_type}' does not exist"
+        else:
+            current_item = get_response['Item']
         updated_at = str(datetime.now())
         
         # Check if list type name is being changed
