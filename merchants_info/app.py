@@ -9,7 +9,8 @@ from typing import Optional, List
 dynamodb = boto3.resource('dynamodb')
 
 # Get the DynamoDB table name from an environment variable for flexibility
-table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
+TABLE_NAME = os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE']
+table = dynamodb.Table(TABLE_NAME)
 
 
 def _extract_payload(event: dict) -> Optional[dict]:
@@ -125,12 +126,12 @@ def lambda_handler(event, context):
                 if last_evaluated_key:
                     scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
 
-                resp = processed_table.query(**scan_kwargs)
+                resp = table.query(**scan_kwargs)
                 items = resp.get("Items", [])
                 if not items:
                     break
 
-                with processed_table.batch_writer() as batch:
+                with table.batch_writer() as batch:
                     for itm in items:
                         batch.delete_item(
                             Key={

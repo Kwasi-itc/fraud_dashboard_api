@@ -8,7 +8,8 @@ from typing import Optional, List
 # Initialize the DynamoDB client
 dynamodb = boto3.resource("dynamodb")
 
-table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
+TABLE_NAME = os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE']
+table = dynamodb.Table(TABLE_NAME)
 
 
 def json_serial(obj):
