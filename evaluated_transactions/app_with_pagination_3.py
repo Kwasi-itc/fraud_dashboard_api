@@ -25,9 +25,11 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     1. merchantName  ← companyName field of the MERCHANT_INFO item  
        Key:  PARTITION_KEY = "MERCHANT_INFO",            SORT_KEY = <merchant_id>
 
-    2. productName & merchantProductName  ← PRODUCT item under the merchant  
-       Key:  PARTITION_KEY = "MERCHANT_PRODUCT#<merchant_id>",  
-             SORT_KEY      = "PRODUCT#<product_id>"
+    2. merchantProductName & merchantId  ← MERCHANT_PRODUCT item  
+       Key:  PARTITION_KEY = "MERCHANT_PRODUCT",  
+             SORT_KEY      = <product_id>  
+       The merchantId field is then used to resolve the merchant’s companyName
+       from the MERCHANT_INFO item.
 
     Results are cached for the lifetime of the Lambda invocation to minimise
     DynamoDB calls.
@@ -39,44 +41,42 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     result: dict = {}
 
     # ------------------------------------------------------------------ #
-    # 1. Fetch merchant (company) name
+    # 1. Fetch product information and discover merchant_id
     # ------------------------------------------------------------------ #
+    resolved_merchant_id = merchant_id
     try:
         resp = table.get_item(
             Key={
-                "PARTITION_KEY": "MERCHANT_INFO",
-                "SORT_KEY": merchant_id,
+                "PARTITION_KEY": "MERCHANT_PRODUCT",
+                "SORT_KEY": product_id,
             },
-            ProjectionExpression="companyName",
+            ProjectionExpression="merchantProductName, merchantId",
         )
-        result["merchantName"] = resp.get("Item", {}).get("companyName", "")
-    except Exception as err:
-        # Fail gracefully but log for debugging
-        print("Error fetching merchant info:", err)
-
-    # ------------------------------------------------------------------ #
-    # 2. Fetch product names for this merchant/product pair
-    # ------------------------------------------------------------------ #
-    try:
-        # With the updated table design the SORT_KEY is simply *product_id*,
-        # so we can fetch the record directly without a filter expression.
-        try:
-            resp = table.get_item(
-                Key={
-                    "PARTITION_KEY": "MERCHANT_PRODUCT",
-                    "SORT_KEY": product_id,
-                },
-                ProjectionExpression="merchantProductName",
-            )
-            item = resp.get("Item", {}) or {}
-            result["merchantProductName"] = item.get("merchantProductName", "")
-        except Exception as err:
-            print("Error fetching merchant product info:", err)
+        item = resp.get("Item", {}) or {}
+        result["merchantProductName"] = item.get("merchantProductName", "")
+        resolved_merchant_id = item.get("merchantId", merchant_id)
     except Exception as err:
         print("Error fetching merchant product info:", err)
 
+    # ------------------------------------------------------------------ #
+    # 2. Fetch merchant (company) name using resolved_merchant_id
+    # ------------------------------------------------------------------ #
+    if resolved_merchant_id:
+        try:
+            resp = table.get_item(
+                Key={
+                    "PARTITION_KEY": "MERCHANT_INFO",
+                    "SORT_KEY": resolved_merchant_id,
+                },
+                ProjectionExpression="companyName",
+            )
+            result["merchantName"] = resp.get("Item", {}).get("companyName", "")
+        except Exception as err:
+            print("Error fetching merchant info:", err)
+
     # Cache and return
-    _MERCHANT_PRODUCT_CACHE[key] = result
+    _MERCHANT_PRODUCT_CACHE[(resolved_merchant_id, product_id)] = result
+    _MERCHANT_PRODUCT_CACHE[(merchant_id, product_id)] = result
     return result
 
 PAGE_SIZE = 20  # Default page size
