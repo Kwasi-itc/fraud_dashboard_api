@@ -27,7 +27,7 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
 
     2. merchantProductName & merchantId  ← MERCHANT_PRODUCT item  
        Key:  PARTITION_KEY = "MERCHANT_PRODUCT",  
-             SORT_KEY      = <merchant_product_id>  
+             SORT_KEY      = <product_id>  
        The merchantId field is then used to resolve the merchant’s companyName
        from the MERCHANT_INFO item.
 
