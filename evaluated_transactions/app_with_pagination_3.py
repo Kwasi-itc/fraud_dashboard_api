@@ -26,8 +26,8 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
        Key:  PARTITION_KEY = "MERCHANT_INFO",            SORT_KEY = <merchant_id>
 
     2. merchantProductName & merchantId  ← MERCHANT_PRODUCT item  
-       Key:  PARTITION_KEY = "MERCHANT_PRODUCT",  
-             SORT_KEY      = <product_id>  
+       Key:  PARTITION_KEY = "MERCHANT_PRODUCT#<merchant_id>",  
+             SORT_KEY      = "PRODUCT#<product_id>"  
        The merchantId field is then used to resolve the merchant’s companyName
        from the MERCHANT_INFO item.
 
@@ -47,8 +47,8 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     try:
         resp = table.get_item(
             Key={
-                "PARTITION_KEY": "MERCHANT_PRODUCT",
-                "SORT_KEY": product_id,
+                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
+                "SORT_KEY": f"PRODUCT#{product_id}",
             },
             ProjectionExpression="merchantProductName, merchantId",
         )
