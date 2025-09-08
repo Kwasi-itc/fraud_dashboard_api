@@ -26,17 +26,17 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
        Key:  PARTITION_KEY = "MERCHANT_INFO",            SORT_KEY = <merchant_id>
 
     2. merchantProductName & merchantId  ← MERCHANT_PRODUCT item  
-       Key:  PARTITION_KEY = "MERCHANT_PRODUCT#<merchant_id>",  
-             SORT_KEY      = "PRODUCT#<product_id>"  
+       Key:  PARTITION_KEY = "MERCHANT_PRODUCT",  
+             SORT_KEY      = <merchant_product_id>  
        The merchantId field is then used to resolve the merchant’s companyName
        from the MERCHANT_INFO item.
 
     Results are cached for the lifetime of the Lambda invocation to minimise
     DynamoDB calls.
     """
-    key = (merchant_id, product_id)
-    if key in _MERCHANT_PRODUCT_CACHE:
-        return _MERCHANT_PRODUCT_CACHE[key]
+    cache_key = product_id  # merchantProductId uniquely identifies the item
+    if cache_key in _MERCHANT_PRODUCT_CACHE:
+        return _MERCHANT_PRODUCT_CACHE[cache_key]
 
     result: dict = {}
 
@@ -47,8 +47,8 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
     try:
         resp = table.get_item(
             Key={
-                "PARTITION_KEY": f"MERCHANT_PRODUCT#{merchant_id}",
-                "SORT_KEY": f"PRODUCT#{product_id}",
+                "PARTITION_KEY": "MERCHANT_PRODUCT",
+                "SORT_KEY": product_id,
             },
             ProjectionExpression="merchantProductName, merchantId",
         )
@@ -75,8 +75,7 @@ def get_merchant_product_data(merchant_id: str, product_id: str) -> dict:
             print("Error fetching merchant info:", err)
 
     # Cache and return
-    _MERCHANT_PRODUCT_CACHE[(resolved_merchant_id, product_id)] = result
-    _MERCHANT_PRODUCT_CACHE[(merchant_id, product_id)] = result
+    _MERCHANT_PRODUCT_CACHE[product_id] = result
     return result
 
 PAGE_SIZE = 20  # Default page size

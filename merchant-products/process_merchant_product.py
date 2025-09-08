@@ -40,11 +40,11 @@ def lambda_handler(event, context):
 
         # 2. Construct the item to be saved in DynamoDB
         #    Keys must align with the schema used by the querying Lambdas.
-        #    PARTITION_KEY  = "MERCHANT_PRODUCT#<merchant_id>"
-        #    SORT_KEY       = "PRODUCT#<product_id>"
+        #    PARTITION_KEY  = "MERCHANT_PRODUCT"
+        #    SORT_KEY       = <merchant_product_id>
         item_to_save = {
-            'PARTITION_KEY': f'MERCHANT_PRODUCT#{merchant_id}',
-            'SORT_KEY': f'PRODUCT#{product_id}',
+            'PARTITION_KEY': 'MERCHANT_PRODUCT',
+            'SORT_KEY': product_data.get('merchantProductId', product_id),
             'merchantProductId': product_data.get('merchantProductId'),
             'merchantId': merchant_id,
             'productId': product_id,
