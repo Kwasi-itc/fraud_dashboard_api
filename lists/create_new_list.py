@@ -90,7 +90,7 @@ def create_list_type(list_type_data):
             'created_by': list_type_data.get('created_by', 'system'),
             'category': list_type_data.get('category', 'CUSTOM'),
             'allowed_entities': list_type_data.get('allowed_entities', ['ACCOUNT', 'PROCESSOR', 'MERCHANT', 'PRODUCT']),
-            'allowed_channels': list_type_data.get('allowed_channels', ['online', 'mobile', 'pos', 'atm']),
+            'allowed_channels': list_type_data.get('allowed_channels', ['card', 'wallet', 'bank']),
             'metadata': list_type_data.get('metadata', {})
         }
         

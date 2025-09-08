@@ -111,9 +111,10 @@ def update_list_type(list_type, updates):
     try:
         list_type = list_type.upper()
         
-        # Reserved list types **may** be updated, but their names must remain
-        # immutable (i.e., they cannot be renamed). Other fields such as
-        # `allowed_channels`, `description`, etc. are still updatable.
+        # Check if it's a reserved list type
+        if list_type in RESERVED_LIST_TYPES:
+            return False, f"Cannot update reserved list type '{list_type}'"
+        
         # Check if list type exists
         get_response = table.get_item(
             Key={
@@ -131,10 +132,6 @@ def update_list_type(list_type, updates):
         # Check if list type name is being changed
         new_list_type = updates.get('list_type', list_type).upper()
         list_type_changed = new_list_type != list_type
-
-        # Prevent renaming of reserved list types
-        if list_type in RESERVED_LIST_TYPES and list_type_changed:
-            return False, f"Cannot rename reserved list type '{list_type}'"
         
         # If list type name is changing, validate the new name
         if list_type_changed:

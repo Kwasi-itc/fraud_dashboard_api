@@ -97,7 +97,7 @@ def get_all_list_types():
                 'created_by': item.get('created_by', ''),
                 'category': item.get('category', 'CUSTOM'),
                 'allowed_entities': item.get('allowed_entities', ['ACCOUNT', 'PROCESSOR', 'MERCHANT', 'PRODUCT']),
-                'allowed_channels': item.get('allowed_channels', ['online', 'mobile', 'pos', 'atm']),
+                'allowed_channels': item.get('allowed_channels', ['card', 'wallet', 'bank']),
                 'metadata': item.get('metadata', {})
             }
             processed_items.append(processed_item)
@@ -114,7 +114,7 @@ def get_all_list_types():
                     'created_by': 'system',
                     'category': 'SYSTEM',
                     'allowed_entities': ['ACCOUNT', 'PROCESSOR', 'MERCHANT', 'PRODUCT'],
-                    'allowed_channels': ['online', 'mobile', 'pos', 'atm'],
+                    'allowed_channels': ['card', 'wallet', 'bank'],
                     'metadata': {'reserved': True}
                 })
         
