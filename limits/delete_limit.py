@@ -15,14 +15,14 @@ def delete_limit(event, limit_type):
         table.delete_item(Key={'PARTITION_KEY': partition_key, 'SORT_KEY': sort_key})
         return response_lambda(200, {"message": "Limit deleted successfully"})
     except Exception as e:
-        print("An error occured ", e)
-        return response_lambda(500, {"message": "An error occured " + e})
+        print("An error occurred ", e)
+        return response_lambda(500, {"message": f"An error occurred {str(e)}"})
 
 def construct_keys(params, limit_type):
     channel = params.get('channel')
-    channel = channel.lower()
     if not channel:
         return None, None
+    channel = channel.lower()
     
     partition_key = f"LIMITS-{channel}-{limit_type}"
     sort_key = "__".join(filter(None, [
