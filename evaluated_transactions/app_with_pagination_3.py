@@ -5,6 +5,7 @@ from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
 import re
 import math
+import base64
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
@@ -174,31 +175,45 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
         result[category].append(entry)
     return result
 
-def create_pagination_token(last_evaluated_key, current_page):
+def create_pagination_token(last_evaluated_key, current_page, total_records, per_page):
     """
-    Create a JSON pagination token consistent with the other case-management
-    endpoints.
+    Return a base-64 encoded pagination token that contains:
+        dynamodb_key  – LastEvaluatedKey returned by DynamoDB
+        next_page     – the page number this token will fetch
+        total_records – (optional) total number of records in the full result
+        per_page      – the requested page size
 
-    The token has the format:
-      {"lek": <LastEvaluatedKey>, "page": <next_page>}
+    Using base-64 keeps the query-string compact and opaque.
     """
     if not last_evaluated_key:
         return None
-    return json.dumps({"lek": last_evaluated_key, "page": current_page + 1})
+
+    token_payload = {
+        "dynamodb_key": last_evaluated_key,
+        "next_page": current_page + 1,
+        "total_records": total_records,
+        "per_page": per_page,
+    }
+    return base64.b64encode(json.dumps(token_payload).encode()).decode()
 
 def parse_pagination_token(token):
     """
-    Parse the JSON pagination token produced by `create_pagination_token`.
+    Decode the base-64 token created by `create_pagination_token`.
 
     Returns:
-      (ExclusiveStartKey | None, {"page": int})
+      (ExclusiveStartKey | None,
+       {"page": int, "total_records": int | None, "per_page": int | None})
     """
     if not token:
         return None, None
     try:
-        payload = json.loads(token)
-        return payload.get("lek"), {"page": payload.get("page", 2)}
-    except json.JSONDecodeError:
+        payload = json.loads(base64.b64decode(token).decode())
+        return payload.get("dynamodb_key"), {
+            "page": payload.get("next_page", 2),
+            "total_records": payload.get("total_records"),
+            "per_page": payload.get("per_page"),
+        }
+    except Exception:
         return None, None
 
 def get_total_count(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type):
@@ -603,7 +618,9 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     # Create next pagination token with metadata
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
-        next_token = create_pagination_token(last_evaluated_key, current_page)
+        next_token = create_pagination_token(
+            last_evaluated_key, current_page, total_records, per_page
+        )
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
 
@@ -775,7 +792,9 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
     # Create next pagination token with metadata
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
-        next_token = create_pagination_token(last_evaluated_key, current_page)
+        next_token = create_pagination_token(
+            last_evaluated_key, current_page, total_records, per_page
+        )
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
 
