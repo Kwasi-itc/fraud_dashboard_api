@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 import logging
+import math
 
 
 dynamodb = boto3.resource('dynamodb')
@@ -198,6 +199,69 @@ def remove_partition_key(item):
     """Remove PARTITION_KEY from an item"""
     return {k: v for k, v in item.items() if k != 'PARTITION_KEY'}
 
+
+# --------------------------------------------------------------------------- #
+# Pagination helpers – identical to evaluated_transactions implementation
+# --------------------------------------------------------------------------- #
+def create_pagination_token(last_evaluated_key, current_page):
+    """
+    Build an opaque pagination token understood by `parse_pagination_token`.
+    """
+    if not last_evaluated_key:
+        return None
+    return json.dumps({"lek": last_evaluated_key, "page": current_page + 1})
+
+
+def parse_pagination_token(token):
+    """
+    Decode the token produced by `create_pagination_token`.
+
+    Returns:
+      (ExclusiveStartKey | None, {"page": int})
+    """
+    if not token:
+        return None, None
+    try:
+        payload = json.loads(token)
+        return payload.get("lek"), {"page": payload.get("page", 2)}
+    except json.JSONDecodeError:
+        return None, None
+
+
+def format_paginated_response(
+    items, current_page, per_page, next_pagination_token=None, total_records=None
+):
+    """
+    Return a response payload identical to evaluated_transactions:
+      {
+        "data": [...],
+        "metadata": {...}
+      }
+    """
+    total_pages = (
+        math.ceil(total_records / per_page) if total_records is not None else None
+    )
+
+    from_record = ((current_page - 1) * per_page) + 1 if items else 0
+    to_record = from_record + len(items) - 1 if items else 0
+
+    next_page = current_page + 1 if next_pagination_token else None
+
+    return {
+        "data": items,
+        "metadata": {
+            "page": current_page,
+            "previous_page": current_page - 1 if current_page > 1 else None,
+            "next_page": next_page,
+            "total_records": total_records,
+            "pages": total_pages,
+            "per_page": per_page,
+            "from": from_record,
+            "to": to_record,
+            "pagination_token": next_pagination_token,
+        },
+    }
+
 def get_all_case_reports(event, context):
     """
     Paginated retrieval of case reports.
@@ -315,18 +379,25 @@ def get_open_cases(event, context):
     """
     Paginated retrieval of open cases.
 
-    Query params accepted:
-      - transaction_id  (optional)
-      - status          (optional)
-      - limit           (optional, default 100)
-      - last_evaluated_key (optional) – JSON string returned from a previous call
+    Query params:
+      - transaction_id    (optional)
+      - status            (optional)
+      - page              (optional, default 1)
+      - per_page          (optional, default 20)
+      - pagination_token  (optional) – opaque token from previous call
     """
     try:
         query_params = event.get("queryStringParameters", {}) or {}
         transaction_id = query_params.get("transaction_id")
         status = query_params.get("status")
-        limit = int(query_params.get("limit", 100))
-        last_evaluated_key_param = query_params.get("last_evaluated_key")
+
+        per_page = int(query_params.get("per_page", 20))
+        pagination_token = query_params.get("pagination_token")
+
+        exclusive_start_key, token_meta = parse_pagination_token(pagination_token)
+        current_page = int(query_params.get("page", 1))
+        if token_meta:
+            current_page = token_meta.get("page", current_page)
 
         # Build key condition
         key_condition = Key("PARTITION_KEY").eq("CASE")
@@ -335,17 +406,12 @@ def get_open_cases(event, context):
 
         dynamo_query_params = {
             "KeyConditionExpression": key_condition,
-            "Limit": limit,
+            "Limit": per_page,
             "ScanIndexForward": False,
         }
 
-        if last_evaluated_key_param:
-            try:
-                dynamo_query_params["ExclusiveStartKey"] = json.loads(
-                    last_evaluated_key_param
-                )
-            except json.JSONDecodeError:
-                return response(400, {"message": "Invalid last_evaluated_key format"})
+        if exclusive_start_key:
+            dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
 
         result = table.query(**dynamo_query_params)
 
@@ -614,7 +680,8 @@ def response(status_code, body):
     body_to_send = {
         "responseCode": status_code,
         "responseMessage": response_message,
-        "data": body
+        "data": body.get("data", []),
+        "metadata": body.get("metadata"),
     }
     return {
         'statusCode': status_code,
