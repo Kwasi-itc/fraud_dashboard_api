@@ -5,10 +5,15 @@ from boto3.dynamodb.conditions import Key
 from datetime import datetime
 from decimal import Decimal
 import uuid
+import logging
 
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
+
+# -------- structured logging -------- #
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
