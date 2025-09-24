@@ -8,7 +8,6 @@ import uuid
 import logging
 import math
 import base64
-import base64
 
 
 dynamodb = boto3.resource('dynamodb')
