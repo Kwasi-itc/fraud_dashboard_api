@@ -8,7 +8,10 @@ dynamodb = boto3.resource('dynamodb')
 table_name = os.environ["FRAUD_LISTS_TABLE"]
 table = dynamodb.Table(table_name)
 
-ALLOWED_LIST_TYPES = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
+# Built-in list types that always exist in the system.
+# We keep the list for potential future use but do **not** block deletion
+# of user-defined list types.
+RESERVED_LIST_TYPES = ["BLACKLIST", "WATCHLIST", "STAFFLIST"]
 
 def decimal_default(obj):
     if isinstance(obj, Decimal):
@@ -46,8 +49,9 @@ def lambda_handler(event, context):
         merchant_id = body.get('merchant_id')
         product_id = body.get('product_id')
 
-        if list_type not in ALLOWED_LIST_TYPES:
-            return response(400, f"Error: Invalid list_type. Allowed types are {', '.join(ALLOWED_LIST_TYPES)}")
+        # Allow deletion of any list type (built-in or user-defined).  No
+        # validation error is raised here; DynamoDB will simply return a
+        # ConditionalCheckFailedException if the item does not exist.
 
         partition_key = f"{list_type}-{channel}-{entity_type}"
         sort_key = ""
