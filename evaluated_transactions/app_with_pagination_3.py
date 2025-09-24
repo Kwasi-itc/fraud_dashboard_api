@@ -5,7 +5,6 @@ from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
 import re
 import math
-import base64
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['FRAUD_PROCESSED_TRANSACTIONS_TABLE'])
@@ -175,44 +174,31 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
         result[category].append(entry)
     return result
 
-def create_pagination_token(last_evaluated_key, current_page, total_records, per_page):
-    """Create a pagination token that includes metadata information"""
+def create_pagination_token(last_evaluated_key, current_page):
+    """
+    Create a JSON pagination token consistent with the other case-management
+    endpoints.
+
+    The token has the format:
+      {"lek": <LastEvaluatedKey>, "page": <next_page>}
+    """
     if not last_evaluated_key:
         return None
-    
-    token_data = {
-        'dynamodb_key': last_evaluated_key,
-        'next_page': current_page + 1,
-        'total_records': total_records,
-        'per_page': per_page
-    }
-    
-    return base64.b64encode(json.dumps(token_data).encode()).decode()
+    return json.dumps({"lek": last_evaluated_key, "page": current_page + 1})
 
 def parse_pagination_token(token):
-    """Parse pagination token to get both DynamoDB key and metadata"""
+    """
+    Parse the JSON pagination token produced by `create_pagination_token`.
+
+    Returns:
+      (ExclusiveStartKey | None, {"page": int})
+    """
     if not token:
         return None, None
-    
     try:
-        token_data = json.loads(base64.b64decode(token).decode())
-        
-        # Handle both old format (just DynamoDB key) and new format (with metadata)
-        if 'dynamodb_key' in token_data:
-            # New format with metadata
-            return token_data['dynamodb_key'], {
-                'page': token_data.get('next_page', 2),
-                'total_records': token_data.get('total_records'),
-                'per_page': token_data.get('per_page', PAGE_SIZE)
-            }
-        else:
-            # Old format - just DynamoDB key, assume page 2
-            return token_data, {
-                'page': 2,
-                'total_records': None,
-                'per_page': PAGE_SIZE
-            }
-    except:
+        payload = json.loads(token)
+        return payload.get("lek"), {"page": payload.get("page", 2)}
+    except json.JSONDecodeError:
         return None, None
 
 def get_total_count(partition_key, start_timestamp, end_timestamp, query_params, channel, query_type):
@@ -494,9 +480,9 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     
     if token_metadata:
         # Use metadata from token for consistency
-        current_page = token_metadata['page']
-        total_records = token_metadata['total_records']
-        per_page = token_metadata['per_page']
+        current_page = token_metadata.get('page', current_page)
+        total_records = token_metadata.get('total_records', total_records)
+        per_page = token_metadata.get('per_page', per_page)
         print(f"Using token metadata: page={current_page}, total_records={total_records}")
     else:
         # Calculate total count when it was not supplied via the pagination token
@@ -602,7 +588,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     # Create next pagination token with metadata
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
-        next_token = create_pagination_token(last_evaluated_key, current_page, total_records, per_page)
+        next_token = create_pagination_token(last_evaluated_key, current_page)
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
 
@@ -670,9 +656,9 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
     
     if token_metadata:
         # Use metadata from token for consistency
-        current_page = token_metadata['page']
-        total_records = token_metadata['total_records']
-        per_page = token_metadata['per_page']
+        current_page = token_metadata.get('page', current_page)
+        total_records = token_metadata.get('total_records', total_records)
+        per_page = token_metadata.get('per_page', per_page)
     else:
         # Calculate total count when it was not supplied via the pagination token
         total_records = get_entity_list_total_count(
@@ -774,7 +760,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
     # Create next pagination token with metadata
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
-        next_token = create_pagination_token(last_evaluated_key, current_page, total_records, per_page)
+        next_token = create_pagination_token(last_evaluated_key, current_page)
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
 
