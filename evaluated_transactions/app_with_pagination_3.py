@@ -515,7 +515,6 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         current_page = token_metadata.get('page', current_page)
         total_records = token_metadata.get('total_records', total_records)
         per_page = token_metadata.get('per_page', per_page)
-        per_page = token_metadata.get('per_page', per_page)
         print(f"Using token metadata: page={current_page}, total_records={total_records}")
     else:
         # Calculate total count when it was not supplied via the pagination token
