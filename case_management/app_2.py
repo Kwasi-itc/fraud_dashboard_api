@@ -306,25 +306,17 @@ def get_all_case_reports(event, context):
         result = table.query(**dynamo_query_params)
         reports = [remove_partition_key(item) for item in result.get("Items", [])]
 
-        response_body = {
-            "reports": reports,
-            "page": current_page,
-            "per_page": per_page,
-            "count": len(reports),
-        }
+        last_evaluated_key = result.get("LastEvaluatedKey")
+        next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
 
-        # Next-page token
-        if "LastEvaluatedKey" in result:
-            next_token = {
-                "lek": result["LastEvaluatedKey"],
-                "page": current_page + 1,
-            }
-            response_body["pagination_token"] = json.dumps(next_token)
-            response_body["has_more"] = True
-        else:
-            response_body["has_more"] = False
+        formatted = format_paginated_response(
+            reports,
+            current_page,
+            per_page,
+            next_token,
+        )
 
-        return response(200, response_body)
+        return response(200, formatted)
 
     except Exception as e:
         print("An error occurred:", str(e))
@@ -428,19 +420,17 @@ def get_open_cases(event, context):
                 continue
             filtered_items.append(item)
 
-        response_body = {
-            "open_cases": filtered_items,
-            "count": len(filtered_items),
-            "total_count": result.get("Count", 0),
-        }
+        last_evaluated_key = result.get("LastEvaluatedKey")
+        next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
 
-        if "LastEvaluatedKey" in result:
-            response_body["last_evaluated_key"] = json.dumps(result["LastEvaluatedKey"])
-            response_body["has_more"] = True
-        else:
-            response_body["has_more"] = False
+        formatted = format_paginated_response(
+            filtered_items,
+            current_page,
+            per_page,
+            next_token,
+        )
 
-        return response(200, response_body)
+        return response(200, formatted)
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
@@ -450,17 +440,24 @@ def get_closed_cases(event, context):
     Paginated retrieval of closed cases.
 
     Query params:
-      - transaction_id      (optional)
-      - status              (optional)
-      - limit               (optional, default 100)
-      - last_evaluated_key  (optional) JSON string from previous call
+      - transaction_id    (optional)
+      - status            (optional)
+      - page              (optional, default 1)
+      - per_page          (optional, default 20)
+      - pagination_token  (optional)
     """
     try:
         query_params = event.get("queryStringParameters", {}) or {}
         transaction_id = query_params.get("transaction_id")
         status = query_params.get("status")
-        limit = int(query_params.get("limit", 100))
-        last_evaluated_key_param = query_params.get("last_evaluated_key")
+
+        per_page = int(query_params.get("per_page", 20))
+        pagination_token = query_params.get("pagination_token")
+
+        exclusive_start_key, token_meta = parse_pagination_token(pagination_token)
+        current_page = int(query_params.get("page", 1))
+        if token_meta:
+            current_page = token_meta.get("page", current_page)
 
         key_condition = Key("PARTITION_KEY").eq("CLOSED_CASE")
         if transaction_id:
@@ -468,17 +465,12 @@ def get_closed_cases(event, context):
 
         dynamo_query_params = {
             "KeyConditionExpression": key_condition,
-            "Limit": limit,
+            "Limit": per_page,
             "ScanIndexForward": False,
         }
 
-        if last_evaluated_key_param:
-            try:
-                dynamo_query_params["ExclusiveStartKey"] = json.loads(
-                    last_evaluated_key_param
-                )
-            except json.JSONDecodeError:
-                return response(400, {"message": "Invalid last_evaluated_key format"})
+        if exclusive_start_key:
+            dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
 
         result = table.query(**dynamo_query_params)
 
@@ -491,19 +483,17 @@ def get_closed_cases(event, context):
                 continue
             filtered_items.append(item)
 
-        response_body = {
-            "closed_cases": filtered_items,
-            "count": len(filtered_items),
-            "total_count": result.get("Count", 0),
-        }
+        last_evaluated_key = result.get("LastEvaluatedKey")
+        next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
 
-        if "LastEvaluatedKey" in result:
-            response_body["last_evaluated_key"] = json.dumps(result["LastEvaluatedKey"])
-            response_body["has_more"] = True
-        else:
-            response_body["has_more"] = False
+        formatted = format_paginated_response(
+            filtered_items,
+            current_page,
+            per_page,
+            next_token,
+        )
 
-        return response(200, response_body)
+        return response(200, formatted)
     except Exception as e:
         print("An error occurred ", e)
         return response(500, {'message': str(e)})
@@ -591,46 +581,43 @@ def get_all_investigators(event, context):
     Paginated list of investigators.
 
     Query params:
-      - limit               (optional, default 100)
-      - last_evaluated_key  (optional) JSON string from previous call
+      - page              (optional, default 1)
+      - per_page          (optional, default 20)
+      - pagination_token  (optional)
     """
     try:
         query_params = event.get("queryStringParameters", {}) or {}
-        limit = int(query_params.get("limit", 100))
-        last_evaluated_key_param = query_params.get("last_evaluated_key")
+        per_page = int(query_params.get("per_page", 20))
+        pagination_token = query_params.get("pagination_token")
+
+        exclusive_start_key, token_meta = parse_pagination_token(pagination_token)
+        current_page = int(query_params.get("page", 1))
+        if token_meta:
+            current_page = token_meta.get("page", current_page)
 
         dynamo_query_params = {
             "KeyConditionExpression": Key("PARTITION_KEY").eq("INVESTIGATOR"),
-            "Limit": limit,
+            "Limit": per_page,
             "ScanIndexForward": False,
         }
 
-        if last_evaluated_key_param:
-            try:
-                dynamo_query_params["ExclusiveStartKey"] = json.loads(
-                    last_evaluated_key_param
-                )
-            except json.JSONDecodeError:
-                return response(400, {"message": "Invalid last_evaluated_key format"})
+        if exclusive_start_key:
+            dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
 
         result = table.query(**dynamo_query_params)
         investigators = result.get("Items", [])
 
-        response_body = {
-            "investigators": investigators,
-            "count": len(investigators),
-            "total_count": result.get("Count", 0),
-        }
+        last_evaluated_key = result.get("LastEvaluatedKey")
+        next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
 
-        if "LastEvaluatedKey" in result:
-            response_body["last_evaluated_key"] = json.dumps(
-                result["LastEvaluatedKey"]
-            )
-            response_body["has_more"] = True
-        else:
-            response_body["has_more"] = False
+        formatted = format_paginated_response(
+            investigators,
+            current_page,
+            per_page,
+            next_token,
+        )
 
-        return response(200, response_body)
+        return response(200, formatted)
     except Exception as e:
         logger.error("get_all_investigators error: %s", e, exc_info=True)
         return response(500, {"message": str(e)})
