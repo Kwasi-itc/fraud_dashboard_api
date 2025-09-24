@@ -390,8 +390,15 @@ def get_open_cases(event, context):
         query_params = event.get("queryStringParameters", {}) or {}
         transaction_id = query_params.get("transaction_id")
         status = query_params.get("status")
-        limit = int(query_params.get("limit", 100))
-        last_evaluated_key_param = query_params.get("last_evaluated_key")
+
+        # Switch to evaluated-transactions style pagination
+        per_page = int(query_params.get("per_page", 20))
+        pagination_token = query_params.get("pagination_token")
+
+        exclusive_start_key, token_meta = parse_pagination_token(pagination_token)
+        current_page = int(query_params.get("page", 1))
+        if token_meta:
+            current_page = token_meta.get("page", current_page)
 
         # Build key condition
         key_condition = Key("PARTITION_KEY").eq("CASE")
@@ -400,17 +407,12 @@ def get_open_cases(event, context):
 
         dynamo_query_params = {
             "KeyConditionExpression": key_condition,
-            "Limit": limit,
-            "ScanIndexForward": False,  # newest first
+            "Limit": per_page,
+            "ScanIndexForward": False,
         }
 
-        if last_evaluated_key_param:
-            try:
-                dynamo_query_params["ExclusiveStartKey"] = json.loads(
-                    last_evaluated_key_param
-                )
-            except json.JSONDecodeError:
-                return response(400, {"message": "Invalid last_evaluated_key format"})
+        if exclusive_start_key:
+            dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
 
         result = table.query(**dynamo_query_params)
 
