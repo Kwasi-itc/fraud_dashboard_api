@@ -175,15 +175,16 @@ def transform_aggregates(relevant_aggregates, account_id, application_id, mercha
         result[category].append(entry)
     return result
 
-def create_pagination_token(last_evaluated_key, current_page, total_records, per_page):
+def create_pagination_token(last_evaluated_key, current_page, total_records=None):
     """
-    Return a base-64 encoded pagination token that contains:
-        dynamodb_key  – LastEvaluatedKey returned by DynamoDB
-        next_page     – the page number this token will fetch
-        total_records – (optional) total number of records in the full result
-        per_page      – the requested page size
+    Return a base-64 encoded pagination token.
 
-    Using base-64 keeps the query-string compact and opaque.
+    Payload:
+      {
+        "dynamodb_key": <LastEvaluatedKey>,
+        "next_page":    <next page number>,
+        "total_records": <int | null>
+      }
     """
     if not last_evaluated_key:
         return None
@@ -192,17 +193,15 @@ def create_pagination_token(last_evaluated_key, current_page, total_records, per
         "dynamodb_key": last_evaluated_key,
         "next_page": current_page + 1,
         "total_records": total_records,
-        "per_page": per_page,
     }
     return base64.b64encode(json.dumps(token_payload).encode()).decode()
 
 def parse_pagination_token(token):
     """
-    Decode the base-64 token created by `create_pagination_token`.
+    Decode the base-64 token produced by `create_pagination_token`.
 
     Returns:
-      (ExclusiveStartKey | None,
-       {"page": int, "total_records": int | None, "per_page": int | None})
+      (ExclusiveStartKey | None, {"page": int, "total_records": int | None})
     """
     if not token:
         return None, None
@@ -211,7 +210,6 @@ def parse_pagination_token(token):
         return payload.get("dynamodb_key"), {
             "page": payload.get("next_page", 2),
             "total_records": payload.get("total_records"),
-            "per_page": payload.get("per_page"),
         }
     except Exception:
         return None, None
@@ -513,7 +511,6 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         # Use metadata from token for consistency
         current_page = token_metadata.get('page', current_page)
         total_records = token_metadata.get('total_records', total_records)
-        per_page = token_metadata.get('per_page', per_page)
         print(f"Using token metadata: page={current_page}, total_records={total_records}")
     else:
         # Calculate total count when it was not supplied via the pagination token
@@ -620,7 +617,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
         next_token = create_pagination_token(
-            last_evaluated_key, current_page, total_records, per_page
+            last_evaluated_key, current_page, total_records
         )
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
@@ -691,7 +688,6 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
         # Use metadata from token for consistency
         current_page = token_metadata.get('page', current_page)
         total_records = token_metadata.get('total_records', total_records)
-        per_page = token_metadata.get('per_page', per_page)
     else:
         # Calculate total count when it was not supplied via the pagination token
         total_records = get_entity_list_total_count(
@@ -794,7 +790,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
     next_token = None
     if last_evaluated_key and len(processed_items) == per_page:
         next_token = create_pagination_token(
-            last_evaluated_key, current_page, total_records, per_page
+            last_evaluated_key, current_page, total_records
         )
     
     return format_paginated_response(processed_items, current_page, per_page, next_token, total_records)
