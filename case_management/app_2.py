@@ -199,58 +199,72 @@ def remove_partition_key(item):
     return {k: v for k, v in item.items() if k != 'PARTITION_KEY'}
 
 def get_all_case_reports(event, context):
-    try:
-        # Optional query parameters
-        query_params = event.get('queryStringParameters', {}) or {}
-        limit = int(query_params.get('limit', 100))  # Default limit of 100 items
-        last_evaluated_key = query_params.get('last_evaluated_key')
-        transaction_id = query_params.get('transaction_id')  # Optional filter by transaction_id
-        
-        # Base query parameters with PARTITION_KEY condition
-        key_condition = Key('PARTITION_KEY').eq('CASE_REPORT')
-        
-        # If transaction_id is provided, add begins_with condition for SORT_KEY
-        if transaction_id:
-            key_condition = key_condition & Key('SORT_KEY').begins_with(f"{transaction_id}#")
-        
-        query_params = {
-            'KeyConditionExpression': key_condition,
-            'Limit': limit,
-            'ScanIndexForward': False  # Sort in descending order (newest first)
-        }
-        
-        # Add pagination if last_evaluated_key is provided
-        if last_evaluated_key:
-            try:
-                query_params['ExclusiveStartKey'] = json.loads(last_evaluated_key)
-            except json.JSONDecodeError:
-                return response(400, {'message': 'Invalid last_evaluated_key format'})
-        
-        # Execute the query
-        result = table.query(**query_params)
-        
-        # Prepare the response
-        reports = [remove_partition_key(item) for item in result.get('Items', [])]
+    """
+    Paginated retrieval of case reports.
 
-        
-        response_body = {
-            'reports': reports,
-            'count': len(reports),
-            'total_count': result.get('Count', 0)
+    Query params:
+      - transaction_id   (optional)
+      - page             (optional, default 1) – only for initial call
+      - per_page         (optional, default 20)
+      - pagination_token (optional) – opaque token returned by a previous call
+    """
+    try:
+        query_params = event.get("queryStringParameters", {}) or {}
+        transaction_id = query_params.get("transaction_id")
+        per_page = int(query_params.get("per_page", 20))
+        pagination_token = query_params.get("pagination_token")
+
+        # Determine starting point & current page
+        exclusive_start_key = None
+        current_page = int(query_params.get("page", 1))
+        if pagination_token:
+            try:
+                token_payload = json.loads(pagination_token)
+                exclusive_start_key = token_payload.get("lek")
+                current_page = token_payload.get("page", current_page)
+            except json.JSONDecodeError:
+                return response(400, {"message": "Invalid pagination_token format"})
+
+        # Build key condition
+        key_condition = Key("PARTITION_KEY").eq("CASE_REPORT")
+        if transaction_id:
+            key_condition = key_condition & Key("SORT_KEY").begins_with(f"{transaction_id}#")
+
+        dynamo_query_params = {
+            "KeyConditionExpression": key_condition,
+            "Limit": per_page,
+            "ScanIndexForward": False,  # newest first
         }
-        
-        # Add pagination token if there are more items
-        if 'LastEvaluatedKey' in result:
-            response_body['last_evaluated_key'] = json.dumps(result['LastEvaluatedKey'])
-            response_body['has_more'] = True
+        if exclusive_start_key:
+            dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
+
+        # Execute query
+        result = table.query(**dynamo_query_params)
+        reports = [remove_partition_key(item) for item in result.get("Items", [])]
+
+        response_body = {
+            "reports": reports,
+            "page": current_page,
+            "per_page": per_page,
+            "count": len(reports),
+        }
+
+        # Next-page token
+        if "LastEvaluatedKey" in result:
+            next_token = {
+                "lek": result["LastEvaluatedKey"],
+                "page": current_page + 1,
+            }
+            response_body["pagination_token"] = json.dumps(next_token)
+            response_body["has_more"] = True
         else:
-            response_body['has_more'] = False
-            
+            response_body["has_more"] = False
+
         return response(200, response_body)
-        
+
     except Exception as e:
         print("An error occurred:", str(e))
-        return response(500, {'message': 'Internal server error'})
+        return response(500, {"message": "Internal server error"})
 
 
 def update_case_status(event, context):
