@@ -241,7 +241,7 @@ def get_all_case_reports(event, context):
         else:
             response_body['has_more'] = False
             
-        return response(200, reports)
+        return response(200, response_body)
         
     except Exception as e:
         print("An error occurred:", str(e))
@@ -389,40 +389,66 @@ def get_open_cases(event, context):
         return response(500, {"message": str(e)})
 
 def get_closed_cases(event, context):
+    """
+    Paginated retrieval of closed cases.
+
+    Query params:
+      - transaction_id      (optional)
+      - status              (optional)
+      - limit               (optional, default 100)
+      - last_evaluated_key  (optional) JSON string from previous call
+    """
     try:
-        # Get query parameters
-        query_params = event.get('queryStringParameters', {}) or {}
-        transaction_id = query_params.get('transaction_id')
-        status = query_params.get('status')
-        
-        # Base query condition
-        key_condition = Key('PARTITION_KEY').eq('CLOSED_CASE')
-        
-        # If transaction_id is provided, add it to the query
+        query_params = event.get("queryStringParameters", {}) or {}
+        transaction_id = query_params.get("transaction_id")
+        status = query_params.get("status")
+        limit = int(query_params.get("limit", 100))
+        last_evaluated_key_param = query_params.get("last_evaluated_key")
+
+        key_condition = Key("PARTITION_KEY").eq("CLOSED_CASE")
         if transaction_id:
-            key_condition = key_condition & Key('SORT_KEY').eq(transaction_id)
-            
-        # Execute the query
-        result = table.query(
-            KeyConditionExpression=key_condition
-        )
-        
-        items = result.get('Items', [])
-        print("The items initially retrieved are ", items)
-        filtered_items = []
-        
+            key_condition = key_condition & Key("SORT_KEY").eq(transaction_id)
+
+        dynamo_query_params = {
+            "KeyConditionExpression": key_condition,
+            "Limit": limit,
+            "ScanIndexForward": False,
+        }
+
+        if last_evaluated_key_param:
+            try:
+                dynamo_query_params["ExclusiveStartKey"] = json.loads(
+                    last_evaluated_key_param
+                )
+            except json.JSONDecodeError:
+                return response(400, {"message": "Invalid last_evaluated_key format"})
+
+        result = table.query(**dynamo_query_params)
+
+        items = result.get("Items", [])
+        filtered_items: list[dict] = []
         for item in items:
-            # Only include items with assigned_to
-            if not item.get('assigned_to'):
+            if not item.get("assigned_to"):
                 continue
-                
-            # Filter by status if provided
-            if status and item.get('status') != status:
+            if status and item.get("status") != status:
                 continue
-                
             filtered_items.append(item)
-            
-        return response(200, {'closed_cases': filtered_items})
+
+        response_body = {
+            "closed_cases": filtered_items,
+            "count": len(filtered_items),
+            "total_count": result.get("Count", 0),
+        }
+
+        if "LastEvaluatedKey" in result:
+            response_body["last_evaluated_key"] = json.dumps(
+                result["LastEvaluatedKey"]
+            )
+            response_body["has_more"] = True
+        else:
+            response_body["has_more"] = False
+
+        return response(200, response_body)
     except Exception as e:
         logger.error("get_closed_cases error: %s", e, exc_info=True)
         return response(500, {"message": str(e)})
