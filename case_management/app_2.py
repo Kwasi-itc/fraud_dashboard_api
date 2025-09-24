@@ -7,6 +7,8 @@ from decimal import Decimal
 import uuid
 import logging
 import math
+import base64
+import base64
 
 
 dynamodb = boto3.resource('dynamodb')
@@ -205,16 +207,20 @@ def remove_partition_key(item):
 # --------------------------------------------------------------------------- #
 def create_pagination_token(last_evaluated_key, current_page):
     """
-    Build an opaque pagination token understood by `parse_pagination_token`.
+    Build a base-64 encoded pagination token (no plain JSON in the URL).
+
+    Token payload:
+      {"lek": <LastEvaluatedKey>, "page": <next_page>}
     """
     if not last_evaluated_key:
         return None
-    return json.dumps({"lek": last_evaluated_key, "page": current_page + 1})
+    payload = {"lek": last_evaluated_key, "page": current_page + 1}
+    return base64.b64encode(json.dumps(payload).encode()).decode()
 
 
 def parse_pagination_token(token):
     """
-    Decode the token produced by `create_pagination_token`.
+    Decode the base-64 token produced by `create_pagination_token`.
 
     Returns:
       (ExclusiveStartKey | None, {"page": int})
@@ -222,9 +228,9 @@ def parse_pagination_token(token):
     if not token:
         return None, None
     try:
-        payload = json.loads(token)
+        payload = json.loads(base64.b64decode(token).decode())
         return payload.get("lek"), {"page": payload.get("page", 2)}
-    except json.JSONDecodeError:
+    except Exception:
         return None, None
 
 
