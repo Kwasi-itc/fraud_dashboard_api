@@ -404,10 +404,24 @@ def construct_partition_key(params):
         return f"EVALUATED-{channel}-MERCHANT-{params.get('processor', '')}__{params.get('merchant_id', '')}"
     elif query_type == 'product':
         return f"EVALUATED-{channel}-PRODUCT-{params.get('processor', '')}__{params.get('merchant_id', '')}__{params.get('product_id', '')}"
-    elif query_type in ['blacklist', 'watchlist', 'stafflist', 'limit', 'card-diff-country-6h']:
-        if query_type == 'stafflist':
-            return "EVALUATED-STAFF"
-        return f"EVALUATED-{query_type.upper()}"
+    elif query_type in [
+        'blacklist',
+        'watchlist',
+        'stafflist',
+        'unlist',
+        'wblist',
+        'limit',
+        'card-diff-country-6h',
+    ]:
+        # Map each short code to the exact partition-key suffix used in DynamoDB
+        list_mapping = {
+            'blacklist': 'BLACKLIST',
+            'watchlist': 'WATCHLIST',
+            'stafflist': 'STAFFLIST',
+            'unlist': 'UNLIST',
+            'wblist': 'WBLIST',
+        }
+        return f"EVALUATED-{list_mapping[query_type]}"
     elif query_type == 'entity_list':
         return f"EVALUATED-{list_type.upper()}"
     else:
