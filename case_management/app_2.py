@@ -238,11 +238,12 @@ def format_paginated_response(
         "metadata": {...}
       }
     """
-    # Provide sensible defaults when total_records is unknown (None)
-    if total_records is None:
-        total_records = len(items)
-
-    total_pages = max(1, math.ceil(total_records / per_page))
+    # If the caller did not supply total_records we keep it as None and
+    # therefore cannot calculate the number of pages.
+    if total_records is not None:
+        total_pages = max(1, math.ceil(total_records / per_page))
+    else:
+        total_pages = None
 
     from_record = ((current_page - 1) * per_page) + 1 if items else 0
     to_record = from_record + len(items) - 1 if items else 0
