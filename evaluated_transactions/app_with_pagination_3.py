@@ -533,7 +533,7 @@ def query_transactions(partition_key, start_timestamp, end_timestamp, query_para
         'KeyConditionExpression': Key('PARTITION_KEY').eq(partition_key) & 
                                 Key('SORT_KEY').between(start_sk, end_sk),
         'ScanIndexForward': False,
-        'Limit': per_page * 2  # Get more items to account for filtering
+        'Limit': per_page  # Fetch exactly one logical page; loop will fetch more if filtering shrinks it
     }
     
     # Add pagination start key if provided
@@ -708,7 +708,7 @@ def query_transactions_by_entity_and_list(start_timestamp, end_timestamp, list_t
         'KeyConditionExpression': Key('PARTITION_KEY').eq(partition_key) & 
                                 Key('SORT_KEY').between(start_sk, end_sk),
         'ScanIndexForward': False,
-        'Limit': per_page * 3  # Get more items since we'll filter them
+        'Limit': per_page  # Fetch exactly one logical page; loop will fetch more if filtering shrinks it
     }
     
     # Add pagination start key if provided
