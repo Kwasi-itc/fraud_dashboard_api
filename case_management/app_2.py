@@ -1,7 +1,7 @@
 import os
 import json
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime
 from decimal import Decimal
 import uuid
@@ -429,6 +429,20 @@ def get_open_cases(event, context):
                 continue
             filtered_items.append(item)
 
+        # -------- total count query -------- #
+        count_filter = Attr("assigned_to").exists() & Attr("report").not_exists()
+        if status:
+            count_filter = count_filter & Attr("status").eq(status)
+
+        count_query_params = {
+            "KeyConditionExpression": key_condition,
+            "Select": "COUNT",
+            "FilterExpression": count_filter,
+        }
+        count_result = table.query(**count_query_params)
+        total_records = count_result.get("Count", 0)
+        # ----------------------------------- #
+
         last_evaluated_key = result.get("LastEvaluatedKey")
         next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
 
@@ -437,6 +451,7 @@ def get_open_cases(event, context):
             current_page,
             per_page,
             next_token,
+            total_records=total_records,
         )
 
         return response(200, formatted)
