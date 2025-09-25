@@ -243,12 +243,13 @@ def format_paginated_response(
         "metadata": {...}
       }
     """
-    # If the caller did not supply total_records we keep it as None and
-    # therefore cannot calculate the number of pages.
-    if total_records is not None:
-        total_pages = max(1, math.ceil(total_records / per_page))
-    else:
-        total_pages = None
+    # Derive total_records when it was not provided and we are on the last
+    # page (i.e. no next_pagination_token).  This prevents nulls in the
+    # metadata while avoiding an extra COUNT query.
+    if total_records is None and next_pagination_token is None:
+        total_records = ((current_page - 1) * per_page) + len(items)
+
+    total_pages = max(1, math.ceil(total_records / per_page)) if total_records is not None else None
 
     from_record = ((current_page - 1) * per_page) + 1 if items else 0
     to_record = from_record + len(items) - 1 if items else 0
