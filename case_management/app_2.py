@@ -672,11 +672,21 @@ def response(status_code, body):
         response_message = "Operation Successful"
     else:
         response_message = "Unsuccessful operation"
+    # Allow callers to pass either the 2-field standard
+    # {"data": [...], "metadata": {...}}
+    # OR any arbitrary payload which will be returned as the `data` field.
+    if isinstance(body, dict) and "data" not in body:
+        data_field = body
+        metadata_field = None
+    else:
+        data_field = body.get("data", [])
+        metadata_field = body.get("metadata")
+
     body_to_send = {
         "responseCode": status_code,
         "responseMessage": response_message,
-        "data": body.get("data", []),
-        "metadata": body.get("metadata"),
+        "data": data_field,
+        "metadata": metadata_field,
     }
     return {
         'statusCode': status_code,
