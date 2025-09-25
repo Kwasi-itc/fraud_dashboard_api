@@ -43,7 +43,8 @@ def create_limit(event, limit_type):
             return response_lambda(500, {"message": "Failed to verify existing limit"})
         
         if existing_item:
-            return response_lambda(400, {"message": "Limit already exists"})
+            # Conflict – a limit with identical keys is already present
+            return response_lambda(409, {"message": "Limit already exists"})
         
         item = {
             'PARTITION_KEY': partition_key,
