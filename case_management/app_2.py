@@ -201,6 +201,17 @@ def remove_partition_key(item):
     return {k: v for k, v in item.items() if k != 'PARTITION_KEY'}
 
 
+def format_investigator_item(item):
+    """
+    Strip DynamoDB bookkeeping fields and expose a clean payload:
+      - remove PARTITION_KEY
+      - rename SORT_KEY -> investigator_id
+    """
+    cleaned = remove_partition_key(item)
+    cleaned["investigator_id"] = cleaned.pop("SORT_KEY", None)
+    return cleaned
+
+
 # --------------------------------------------------------------------------- #
 # Pagination helpers – identical to evaluated_transactions implementation
 # --------------------------------------------------------------------------- #
@@ -562,22 +573,32 @@ def create_investigator(event, context):
     try:
         body = json.loads(event['body'])
         investigator_name = body.get('name')
-        
+        email = body.get('email')
+
         if not investigator_name:
             return response(400, {'message': 'Investigator name is required'})
-            
+
         investigator_id = str(uuid.uuid4())
-        
+
         item = {
             'PARTITION_KEY': 'INVESTIGATOR',
             'SORT_KEY': investigator_id,
             'name': investigator_name,
-            'created_at': datetime.now().isoformat()
+            'created_at': datetime.now().isoformat(),
         }
-        
+        if email:
+            item['email'] = email
+
         table.put_item(Item=item)
-        
-        return response(200, {'message': 'Investigator created successfully', 'investigator_id': investigator_id})
+
+        response_payload = {
+            'message': 'Investigator created successfully',
+            'investigator_id': investigator_id,
+        }
+        if email:
+            response_payload['email'] = email
+
+        return response(200, response_payload)
     except Exception as e:
         print("An error occurred: ", e)
         return response(500, {'message': str(e)})
@@ -586,16 +607,17 @@ def get_investigator(event, context):
     try:
         params = event.get('queryStringParameters', {}) or {}
         investigator_id = params.get('investigator_id')
-        
+
         if not investigator_id:
             return response(400, {'message': 'investigator_id is required'})
-            
+
         result = table.get_item(Key={'PARTITION_KEY': 'INVESTIGATOR', 'SORT_KEY': investigator_id})
-        
+
         if 'Item' not in result:
             return response(404, {'message': 'Investigator not found'})
-            
-        return response(200, result['Item'])
+
+        cleaned = format_investigator_item(result['Item'])
+        return response(200, cleaned)
     except Exception as e:
         print("An error occurred: ", e)
         return response(500, {'message': str(e)})
@@ -629,7 +651,8 @@ def get_all_investigators(event, context):
             dynamo_query_params["ExclusiveStartKey"] = exclusive_start_key
 
         result = table.query(**dynamo_query_params)
-        investigators = result.get("Items", [])
+        raw_items = result.get("Items", [])
+        investigators = [format_investigator_item(item) for item in raw_items]
 
         last_evaluated_key = result.get("LastEvaluatedKey")
         next_token = create_pagination_token(last_evaluated_key, current_page) if last_evaluated_key else None
@@ -651,17 +674,36 @@ def update_investigator(event, context):
         body = json.loads(event['body'])
         investigator_id = body.get('investigator_id')
         investigator_name = body.get('name')
-        
-        if not investigator_id or not investigator_name:
-            return response(400, {'message': 'investigator_id and name are required'})
-            
+        email = body.get('email')
+
+        if not investigator_id:
+            return response(400, {'message': 'investigator_id is required'})
+
+        if not investigator_name and not email:
+            return response(400, {'message': 'At least one of name or email must be provided'})
+
+        update_expr_parts = ['updated_at = :updated_at']
+        expr_attr_vals = {':updated_at': datetime.now().isoformat()}
+        expr_attr_names = {}
+
+        if investigator_name is not None:
+            update_expr_parts.append('#name = :name')
+            expr_attr_vals[':name'] = investigator_name
+            expr_attr_names['#name'] = 'name'
+
+        if email is not None:
+            update_expr_parts.append('email = :email')
+            expr_attr_vals[':email'] = email
+
+        update_expression = 'SET ' + ', '.join(update_expr_parts)
+
         table.update_item(
             Key={'PARTITION_KEY': 'INVESTIGATOR', 'SORT_KEY': investigator_id},
-            UpdateExpression='SET #name = :name, updated_at = :updated_at',
-            ExpressionAttributeNames={'#name': 'name'},
-            ExpressionAttributeValues={':name': investigator_name, ':updated_at': datetime.now().isoformat()}
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expr_attr_names if expr_attr_names else None,
+            ExpressionAttributeValues=expr_attr_vals
         )
-        
+
         return response(200, {'message': 'Investigator updated successfully'})
     except Exception as e:
         print("An error occurred: ", e)
